@@ -1,6 +1,22 @@
 \chapter{Introdução}\label{cap:introducao}
+%Trazer aplicações de RRT na prática, acho que libs como opml usam rrt e sao empregadas em roboticaespacial
 
-\lipsum[1-4]
+A robótica, ao longo das últimas décadas, deixou de estar associada apenas à execução de tarefas repetitivas em ambientes rigidamente controlados, passando a representar uma área central no desenvolvimento de sistemas autônomos capazes de interagir com o mundo físico. Robôs móveis, manipuladores, veículos autônomos, drones e plataformas exploratórias passaram a ser empregados em atividades que exigem percepção do ambiente, tomada de decisão e execução de movimentos seguros. Com isso, a robótica se consolidou como uma área interdisciplinar, envolvendo conceitos de computação, controle, inteligência artificial, mecânica, eletrônica e sistemas embarcados. %Tem mais algum de robo humanoide com isso que representa usa rrt e como posso colocar aqui?
+
+Sob esse ponto, a navegação autônoma assume papel fundamental porque para que um robô possa cumprir uma tarefa, não basta apenas possuir sensores e atuadores, também é necessário que ele seja capaz de determinar uma sequência de movimentos que o conduza de uma configuração inicial até uma configuração objetivo, evitando colisões e respeitando as restrições impostas pelo ambiente e pelo próprio sistema robótico. Esse problema é conhecido como planejamento de caminho, sendo uma das questões clássicas da robótica e da computação aplicada \citep{lavalle2006planning}.
+
+Embora possa ser descrito de maneira simples, o planejamento de caminho apresenta dificuldades relevantes. O espaço no qual o robô se move pode conter obstáculos, regiões estreitas, áreas desconectadas ou caminhos de difícil acesso. Além disso, quando o robô possui muitos graus de liberdade, como ocorre em manipuladores, o espaço de busca cresce rapidamente, tornando inviável a análise exaustiva de todas as possibilidades. Em robôs móveis, mesmo em ambientes bidimensionais, a presença de obstáculos, restrições de movimento e necessidade de resposta em tempo reduzido já tornam o problema desafiador.
+
+Tradicionalmente, muitos problemas de navegação podem ser tratados por métodos baseados em grades, contudo essas abordagens são eficientes apenas em cenários nos quais o espaço de busca pode ser discretizado de maneira adequada. Em ambientes contínuos, de alta dimensionalidade ou com grande quantidade de restrições geométricas, a discretização completa do espaço pode se tornar computacionalmente custosa. Além disso, a escolha da resolução da grade influencia diretamente a qualidade da solução: resoluções muito baixas podem ocultar passagens estreitas, enquanto resoluções muito altas aumentam significativamente o custo computacional da busca.
+
+
+%OMPL is the default planning library in MoveIt and has been used for many robots. Here, OMPL is used to plan footsteps for NASA's Robonaut2 aboard the International Space Station
+
+Para contornar essa limitação, surgiram os algoritmos de planejamento baseados em amostragem, que constroem uma representação parcial do espaço a partir de amostras aleatórias, conectando regiões livres na forma de grafos ou árvores. Essa abordagem lida naturalmente com espaços contínuos e de alta dimensionalidade \cite{lavalle1998rapidly}, e está consolidada em bibliotecas amplamente adotadas, como a Open Motion Planning Library (OMPL), que disponibiliza algoritmos como PRM e RRT, além de integração com o MoveIt/ROS e o simulador CoppeliaSim \cite{ompl,moveit_ompl}. A própria documentação da OMPL menciona seu uso no planejamento de movimentos do Robonaut2 da NASA a bordo da Estação Espacial Internacional, ilustrando a relevância prática desses métodos \cite{ompl}.
+
+Diante desse cenário, este trabalho tem como foco o estudo e a análise de algoritmos de planejamento de movimento baseados em amostragem, com ênfase nos algoritmos RRT e EST. Busca-se compreender como essas abordagens exploram o espaço de busca, como se comportam diante de obstáculos e passagens restritas, e quais características influenciam sua capacidade de encontrar caminhos viáveis.
+
+%\lipsum[1-4]
 
 \section{Objetivos}
 

@@ -1,3 +1,383 @@
 \chapter{Fundamentação Teórica}\label{cap:fundamentacao}
 
-\lipsum[1-6]
+Este capítulo estabelece os fundamentos teóricos necessários para a compreensão do problema de planejamento de caminhos em robótica, com ênfase nos algoritmos baseados em amostragem. Inicialmente, o problema de planejamento de movimento é contextualizado, discutindo-se suas principais abordagens e classificações. Em seguida, introduz-se formalmente o conceito de espaço de configuração e a definição do espaço livre, elementos centrais para a modelagem matemática do problema de navegação.
+
+A partir dessa formalização, são apresentadas as principais categorias de algoritmos clássicos de planejamento, bem como as propriedades formais que caracterizam esses métodos, como completude e otimalidade. Com base nessa estrutura teórica, são detalhados os algoritmos RRT e EST, destacando seus princípios de funcionamento e diferenças estruturais. Posteriormente, apresenta-se a variante híbrida proposta neste trabalho.
+
+Por fim, são definidas as métricas utilizadas na avaliação experimental e discutidos os trabalhos relacionados que fundamentam e contextualizam a proposta desenvolvida.
+
+%Espaço de Configuração, problema de planejamento, algoritmos, conmpletude, métricas de avaliação
+\section{Planejamento de caminho em robótica}\label{sec:planejamento_caminho}
+
+O planejamento de caminho constitui um dos problemas centrais da robótica móvel e da manipulação robótica, consistindo na determinação de uma sequência contínua de configurações que conduza o robô de um estado inicial a um estado objetivo sem violar restrições impostas pelo ambiente. Conforme discutido por \citet{choset2005principles}, o problema pode ser interpretado como uma busca geométrica em um espaço de estados contínuo, no qual obstáculos induzem regiões proibidas e o movimento deve respeitar restrições cinemáticas e, eventualmente, dinâmicas.
+
+Diferentemente do controle de movimento, que trata da execução física das ações, o planejamento opera em um nível deliberativo, abstraindo a dinâmica e focando na viabilidade geométrica do trajeto. Essa distinção permite modelar o problema de forma matemática, transformando a navegação física em uma questão de conectividade topológica em um espaço adequado de representação.
+
+A formulação clássica do planejamento assume conhecimento prévio do ambiente e considera o problema sob a perspectiva determinística, no qual o objetivo é encontrar um caminho contínuo pertencente ao espaço livre que conecte duas configurações válidas.
+
+\section{Espaço de configuração e espaço livre}
+\label{sec:espaco_configuracao}
+ 
+Para formalizar o problema de planejamento de caminho, introduz-se o conceito de \textbf{espaço de configuração}, usualmente denotado por $Q$. Conforme \citet{choset2005principles}, o espaço de configuração representa o conjunto de todas as configurações possíveis do robô, sendo cada ponto desse espaço uma descrição completa do estado geométrico do sistema. A principal utilidade dessa abstração é reduzir um robô de geometria arbitrária a um ponto em $Q$, simplificando a representação do problema de planejamento.
+ 
+Uma \textbf{configuração} $q$ de um robô é um vetor de parâmetros que especifica univocamente a posição e orientação de cada ponto do robô no espaço de trabalho. A dimensão de $Q$ corresponde ao número de graus de liberdade (degrees of freedom) do sistema.
+
+ 
+Para um robô rígido planar, por exemplo, o espaço de configuração é definido como
+\begin{equation}
+    Q = \mathbb{R}^2 \times S^1,
+    \label{eq:cspace_planar}
+\end{equation}
+onde $\mathbb{R}^2$ representa a posição no plano e $S^1$ a orientação angular. Para um manipulador com $n$ juntas de revolução, tem-se $Q = (S^1)^n$, o toro $n$-dimensional~\cite{choset2005principles}.
+ 
+Considere um \textbf{espaço de trabalho} $W \subset \mathbb{R}^d$, com $d \in \{2, 3\}$, contendo obstáculos $W_{O_i}$. O conjunto livre no espaço de trabalho é
+\begin{equation}
+    W_{\mathrm{free}} = W \setminus \bigcup_i W_{O_i}.
+    \label{eq:wfree}
+\end{equation}
+Entretanto, o planejamento não é realizado diretamente no espaço de trabalho, mas sim no espaço de configuração. Seja $R(q) \subset W$ o conjunto de pontos ocupados pelo robô quando este se encontra na configuração $q \in Q$. O conjunto de configurações em colisão com o obstáculo $W_{O_i}$ é
+\begin{equation}
+    Q_{O_i} = \bigl\{ q \in Q \mid R(q) \cap W_{O_i} \neq \emptyset \bigr\},
+    \label{eq:qobs}
+\end{equation}
+e o \textbf{espaço livre de configurações} é definido como
+\begin{equation}
+    Q_{\mathrm{free}} = Q \setminus \bigcup_i Q_{O_i}.
+    \label{eq:qfree}
+\end{equation}
+ 
+Obstáculos simples no espaço de trabalho podem induzir regiões proibidas de geometria complexa em $Q$, o que torna sua construção explícita computacionalmente proibitiva para robôs com muitos graus de liberdade~\cite{choset2005principles}. Os algoritmos baseados em amostragem contornam essa dificuldade consultando $Q_{O_i}$ apenas pontualmente, por meio de verificadores de colisão, sem construir a representação completa de $Q_{\mathrm{free}}$~\cite{choset2005principles, lavalle2006planning}.
+ 
+O problema de planejamento de caminho é então reinterpretado como a busca por uma curva contínua em $Q_{\mathrm{free}}$ que conecte uma configuração inicial $q_{\mathrm{start}}$ a uma configuração objetivo $q_{\mathrm{goal}}$. Define-se formalmente a função de caminho como
+\begin{equation}
+    c : [0,1] \rightarrow Q,
+    \label{eq:path_map}
+\end{equation}
+tal que
+\begin{equation}
+    c(0) = q_{\mathrm{start}}, \qquad c(1) = q_{\mathrm{goal}}, \qquad c(s) \in Q_{\mathrm{free}},\; \forall\, s \in [0,1].
+    \label{eq:path_definition}
+\end{equation}
+ 
+A solução do problema consiste, portanto, na determinação de uma função contínua $c \in C^0$ que satisfaça as condições da \autoref{eq:path_definition}. Quando essa função é parametrizada no tempo e possui derivadas suficientes para a definição de velocidades e acelerações, o problema passa a ser denominado \textbf{planejamento de trajetória}, conforme discutido por \citet{choset2005principles}.
+
+\section{Formulação matemática do problema de navegação}
+\label{sec:formulacao}
+
+A partir da definição do espaço de configuração $Q$ e do espaço livre 
+$Q_{\mathrm{free}} \subset Q$, o problema de navegação pode ser formulado 
+como um problema de conectividade em um espaço topológico contínuo 
+\cite{choset2005principles}. Em sua forma mais geral, o objetivo consiste 
+em determinar a existência de um caminho contínuo que conecte duas 
+configurações válidas sem interceptar regiões proibidas.
+
+Sejam $q_{\mathrm{start}}, q_{\mathrm{goal}} \in Q_{\mathrm{free}}$ duas 
+configurações admissíveis. Um \textbf{caminho} é uma função contínua
+
+\begin{equation}
+    c : [0,1] \rightarrow Q,
+    \label{eq:path_mapping}
+\end{equation}
+
+tal que
+
+\begin{equation}
+    c(0) = q_{\mathrm{start}}, \qquad
+    c(1) = q_{\mathrm{goal}}, \qquad
+    c(s) \in Q_{\mathrm{free}}, \;\forall s \in [0,1].
+    \label{eq:path_conditions}
+\end{equation}
+
+A solução do problema de planejamento de caminho consiste, portanto, 
+na determinação de uma função contínua $c \in C^0$ que satisfaça 
+a \autoref{eq:path_conditions}, ou na conclusão de que tal função não existe.
+
+\subsection*{Problema de viabilidade}
+
+A primeira formulação, denominada \textbf{problema de viabilidade}, 
+busca apenas a existência de um caminho livre de colisão:
+
+Dados $q_{\mathrm{start}}, q_{\mathrm{goal}} \in Q_{\mathrm{free}}$, 
+determinar uma função contínua $c : [0,1] \rightarrow Q$ 
+satisfazendo \autoref{eq:path_conditions}, ou determinar que 
+nenhuma solução existe \citep{choset2005principles}.
+
+\subsection*{Problema de planejamento ótimo}
+
+Em diversas aplicações, não é suficiente encontrar qualquer caminho 
+viável; deseja-se otimizar algum critério de desempenho. Seja
+
+\begin{equation}
+    \Sigma_{\mathrm{free}} =
+    \left\{
+        c : [0,1] \rightarrow Q \;\middle|\;
+        c \in C^0,\;
+        c(s) \in Q_{\mathrm{free}}
+    \right\}
+    \label{eq:admissible_paths}
+\end{equation}
+
+o conjunto de caminhos admissíveis. Seja ainda
+
+\begin{equation}
+    J : \Sigma_{\mathrm{free}} \rightarrow \mathbb{R}_{\geq 0}
+    \label{eq:functional_cost}
+\end{equation}
+
+um funcional de custo definido sobre esse conjunto.
+
+O \textbf{problema de planejamento ótimo} consiste em determinar
+
+\begin{equation}
+    c^* = \arg\min_{c \in \Sigma_{\mathrm{free}}} J(c),
+    \label{eq:optimal_planning_problem}
+\end{equation}
+
+conforme formalizado em \cite{Karaman2011SamplingbasedAF}.
+
+Um dos funcionais mais empregados é o comprimento de arco do caminho:
+
+\begin{equation}
+    J(c) =
+    \int_0^1 \|\dot{c}(s)\| \, ds,
+    \label{eq:arc_length}
+\end{equation}
+
+onde $\|\cdot\|$ denota a norma euclidiana. Para uma discretização 
+composta por configurações $q_0, q_1, \ldots, q_m$, tem-se a 
+aproximação
+
+\begin{equation}
+    J(c) \approx
+    \sum_{i=0}^{m-1}
+    \| q_{i+1} - q_i \|.
+    \label{eq:discrete_arc_length}
+\end{equation}
+
+Outros critérios de custo incluem tempo de execução, consumo de energia, 
+suavidade da trajetória ou maximização da distância a obstáculos 
+\cite{choset2005principles}.
+
+\subsection*{Planejamento de trajetória e planejamento cinodinâmico}
+
+Quando o caminho é parametrizado explicitamente no tempo $t$, 
+e o estado do sistema é descrito por
+
+\begin{equation}
+    x = (q, \dot{q}),
+\end{equation}
+
+com dinâmica governada por
+
+\begin{equation}
+    \dot{x}(t) = f(x(t), u(t)), \qquad u(t) \in \mathcal{U},
+    \label{eq:system_dynamics}
+\end{equation}
+
+o problema passa a ser denominado \textbf{planejamento de trajetória} 
+ou \textbf{planejamento cinodinâmico} 
+(\textit{kinodynamic planning}) \cite{LaValle1999RandomizedKP}. 
+Nesse caso, busca-se uma trajetória admissível que respeite 
+restrições dinâmicas e limites de atuação.
+
+Neste trabalho, análise ao planejamento geométrico de caminhos é limitada, no qual as restrições dinâmicas são abstraídas, reduzindo o problema à conectividade do espaço 
+$Q_{\mathrm{free}}$.
+ \section{Algoritmos de planejamento de caminhos}
+\label{sec:algoritmos}
+
+Uma vez formalizado o problema como a busca por uma curva contínua em $Q_{\mathrm{free}}$, diferentes estratégias algorítmicas podem ser empregadas para sua resolução. Conforme apresentado por \citet{choset2005principles}, os métodos de planejamento podem ser classificados em três categorias principais: (i) busca em grafos discretizados, (ii) decomposição do espaço livre e (iii) métodos probabilísticos baseados em amostragem.
+
+\subsection{Métodos clássicos}
+
+\paragraph{Busca em grafos discretizados:}
+
+Quando o espaço de configuração é discretizado, o problema pode ser reduzido a um problema de busca em grafos. Cada vértice representa uma configuração e as arestas representam transições válidas entre configurações adjacentes. Algoritmos como Dijkstra e A* podem então ser empregados. Embora garantam completude na discretização adotada, tais métodos sofrem com crescimento exponencial do número de estados à medida que a dimensão do espaço aumenta.
+
+\paragraph{Decomposição celular:}
+
+A decomposição celular consiste na partição explícita de $Q_{\mathrm{free}}$ em um conjunto finito de células disjuntas cuja união corresponde ao espaço livre. Constrói-se então um grafo de adjacência entre células conectadas. Se existir uma sequência de células conectando as regiões que contêm $q_{\mathrm{start}}$ e $q_{\mathrm{goal}}$, um caminho pode ser construído \cite{choset2005principles}.
+
+\paragraph{Roadmaps determinísticos:}
+
+Entre as estruturas clássicas destacam-se o grafo de visibilidade e o diagrama de Voronoi generalizado. O diagrama de Voronoi possui a propriedade de maximizar o afastamento em relação aos obstáculos, favorecendo caminhos com maior folga de segurança. Entretanto, sua construção exata é computacionalmente onerosa quando o número de graus de liberdade cresce. Por causa dessas limitações foi motivado o desenvolvimento dos métodos probabilísticos baseados em amostragem.
+
+
+\subsection{Métodos probabilísticos baseados em amostragem}
+
+Os métodos baseados em amostragem evitam a construção explícita de $Q_{\mathrm{free}}$. Em vez disso, utilizam amostras aleatórias em $Q$ e verificações locais de colisão para construir incrementalmente uma estrutura de conectividade.  
+
+Conforme discutido em \citet{choset2005principles}, esses métodos são tipicamente \textit{probabilisticamente completos}, isto é, se existe um caminho com limpeza positiva, a probabilidade de encontrá-lo converge para 1 à medida que o número de amostras tende ao infinito.
+
+Dois paradigmas principais são identificados:
+
+\begin{itemize}
+    \item \textbf{Roadmaps probabilísticos (PRM)};
+    \item \textbf{Planejadores baseados em árvores} (RRT, EST).
+\end{itemize}
+
+Neste trabalho, o foco recai sobre os planejadores baseados em árvores.
+
+\subsection{Rapidly-exploring Random Trees (RRT)}
+
+O algoritmo RRT, introduzido por \citet{lavalle1998rapidly} e apresentado em \citet{choset2005principles}, constrói incrementalmente uma árvore enraizada em $q_{\mathrm{start}}$. A expansão ocorre em direção a amostras aleatórias do espaço de configuração.
+
+Uma propriedade central do RRT é seu viés implícito de Voronoi: vértices associados a regiões maiores do diagrama de Voronoi possuem maior probabilidade de serem selecionados para expansão, promovendo exploração eficiente do espaço.
+
+\begin{algorithm}[H]
+\caption{RRT}
+\begin{algorithmic}[1]
+\State $T \gets \{q_{\mathrm{start}}\}$
+\While{não atingir critério de parada}
+    \State $q_{\mathrm{rand}} \gets \textsc{Sample}(Q)$
+    \State $q_{\mathrm{near}} \gets \textsc{Nearest}(T, q_{\mathrm{rand}})$
+    \State $q_{\mathrm{new}} \gets \textsc{Steer}(q_{\mathrm{near}}, q_{\mathrm{rand}})$
+    \If{$\textsc{CollisionFree}(q_{\mathrm{near}}, q_{\mathrm{new}})$}
+        \State adicionar $q_{\mathrm{new}}$ e aresta correspondente a $T$
+    \EndIf
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+O RRT é probabilisticamente completo, porém não é assintoticamente ótimo.
+
+
+\subsection{RRT-Connect}
+
+Proposto por \citet{kuffner2000rrtconnect}, o RRT-Connect emprega duas árvores, uma enraizada em $q_{\mathrm{start}}$ e outra em $q_{\mathrm{goal}}$. A cada iteração, tenta-se expandir agressivamente uma árvore em direção à outra.  
+
+Essa estratégia reduz significativamente o tempo médio de planejamento, sendo amplamente utilizada em aplicações práticas.
+
+
+\subsection{RRT*}
+
+O RRT* foi introduzido por \citet{Karaman2011SamplingbasedAF} como uma modificação do RRT capaz de garantir \textbf{otimalidade assintótica}.  
+
+Além da expansão incremental, o algoritmo executa uma etapa de reconexão local (\textit{rewiring}), na qual vértices vizinhos podem ser reconectados caso isso reduza o custo total do caminho.
+
+\begin{algorithm}[H]
+\caption{RRT*}
+\begin{algorithmic}[1]
+\State $T \gets \{q_{\mathrm{start}}\}$
+\While{não atingir critério de parada}
+    \State $q_{\mathrm{rand}} \gets \textsc{Sample}(Q)$
+    \State $q_{\mathrm{near}} \gets \textsc{Nearest}(T, q_{\mathrm{rand}})$
+    \State $q_{\mathrm{new}} \gets \textsc{Steer}(q_{\mathrm{near}}, q_{\mathrm{rand}})$
+    \If{$\textsc{CollisionFree}(q_{\mathrm{near}}, q_{\mathrm{new}})$}
+        \State determinar conjunto de vizinhos $\mathcal{Q}_{\mathrm{near}}$
+        \State escolher pai de menor custo para $q_{\mathrm{new}}$
+        \State reconectar vizinhos se houver redução de custo
+    \EndIf
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+O RRT* é simultaneamente probabilisticamente completo e assintoticamente ótimo.
+
+\subsection{Expansive Space Trees (EST)}
+
+O algoritmo EST explora o conceito de \textit{espaços expansivos}, priorizando a expansão de regiões pouco densamente amostradas \cite{choset2005principles}.  
+
+Diferentemente do RRT, a seleção do nó a ser expandido é ponderada por uma estimativa de densidade local, favorecendo regiões com menor cobertura.
+
+\begin{algorithm}[H]
+\caption{EST}
+\begin{algorithmic}[1]
+\State $T \gets \{q_{\mathrm{start}}\}$
+\While{não atingir critério de parada}
+    \State selecionar $q \in T$ com probabilidade inversamente proporcional à densidade local
+    \State gerar nova configuração $q_{\mathrm{new}}$ por perturbação aleatória
+    \If{$\textsc{CollisionFree}(q, q_{\mathrm{new}})$}
+        \State adicionar $q_{\mathrm{new}}$ a $T$
+    \EndIf
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+Sob hipóteses de expansividade do espaço livre, o EST também apresenta completude probabilística. % explicar melhor
+
+% explicar melhor talvez colocar sobre o diagrama de voronoi, bias, bias de probabilidade para as amostras, tabela diferenciando EST e RRT
+\subsection{Considerações finais}
+
+Os métodos baseados em amostragem tornaram-se predominantes em robótica devido à sua escalabilidade em espaços de alta dimensão. Enquanto o RRT privilegia exploração rápida, o RRT* introduz garantias de qualidade assintótica, e o EST apresenta bom desempenho em regiões restritivas. A escolha de qual algoritmo usar depende do compromisso entre rapidez de convergência, qualidade da solução e custo computacional.
+
+\section{Propriedades formais dos planejadores}
+
+\subsection{Completude determinística}
+
+\subsection{Completude por resolução}
+
+\subsection{Completude probabilística}
+
+\subsection{Otimização assintótica}
+
+\section{Rapidly-exploring Random Trees}
+
+\section{Expansive Space Trees}
+
+\section{Variante híbrida do EST} % Pensando em como colocar
+
+\section{Métricas de avaliação experimental}
+
+\section{Trabalhos Relacionados}\label{sec:trabalhos_relacionados}
+%Tabela com trabalhos relacionados
+ Esta seção posiciona o presente trabalho no contexto do planejamento de caminhos baseado em amostragem, destacando as principais contribuições teóricas e evoluções do campo. A literatura foi organizada em quatro eixos: (i) referências fundacionais, (ii) completude probabilística, (iii) otimalidade assintótica e (iv) extensões e aplicações práticas.
+ 
+Os fundamentos conceituais do planejamento de caminhos encontram-se sistematizados nas obras clássicas de Choset et al.~\cite{choset2005principles} e LaValle~\cite{lavalle2006planning}. Esses trabalhos estabelecem a formulação matemática do problema no espaço de configurações, introduzem os algoritmos PRM e EST e discutem propriedades como conectividade, viés de Voronoi e planejamento cinodinâmico. Revisões mais recentes, como Zhang et al.~\cite{Zhang_2025} e Gammell~\cite{gammell2021asymptotically}, consolidam os avanços recentes, especialmente no que diz respeito à escalabilidade e à busca por soluções ótimas.
+ 
+No âmbito da completude probabilística, os trabalhos originais de Kavraki et al.~\cite{kavraki1996probabilistic} e LaValle~\cite{LaValle1998RapidlyexploringRT} introduziram PRM e RRT com argumentos intuitivos de convergência. Para o EST, Hsu et al.~\cite{hsu1997path} propuseram o algoritmo originalmente e apresentaram a análise formal de completude probabilística na versão de periódico~\cite{hsu1999path}: em espaços expansivos, a probabilidade de falha decai exponencialmente com o número de amostras. Essa prova difere da obtida para o RRT, pois requer a hipótese de expansividade do espaço livre, mais restritiva do que a simples existência de um caminho com folga $\delta > 0$. A formalização rigorosa da completude do RRT foi posteriormente apresentada por Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric}, sob essa hipótese mais fraca.
+ 
+Entretanto, completude probabilística não implica convergência ao ótimo. Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF} demonstraram que o RRT converge quase certamente para uma solução subótima, propondo o RRT* como alternativa assintoticamente ótima. O mesmo vale para o EST padrão: por não incorporar critério de custo em sua estratégia de expansão, também não é assintoticamente ótimo~\cite{Karaman2011SamplingbasedAF}. A partir desse marco teórico, surgiram variantes como o Informed RRT*~\cite{6942976}, que restringe a amostragem a um hiperelipsoide admissível, e o RRT*-SMART~\cite{nasir2013rrtsmart}, que acelera a convergência por meio de pontos auxiliares (\textit{beacons}).
+ 
+Duas contribuições posteriores são diretamente relevantes para a linha do EST. Hauser e Zhou~\cite{hauser2016asymptotically} propuseram o meta-algoritmo \textbf{AO-x}, que converte qualquer planejador cinodinâmico viável, incluindo o EST, em um planejador assintoticamente ótimo, sem recorrer a funções de direcionamento ou resolvedores de problemas de contorno de dois pontos. A ideia central é transformar o problema ótimo em uma sequência de problemas viáveis resolvidos em um espaço estado-custo aumentado, à medida que soluções de custo progressivamente menor são encontradas, o espaço de busca é progressivamente contraído em torno do ótimo. O trabalho demonstra o método usando EST e RRT como subroutines e prova que a solução converge quase certamente para o ótimo. Rickert, Sieverling e Brock~\cite{rickert2014balancing} propuseram o \textbf{EET} (\textit{Exploring/Exploiting Tree}), variante direta do EST que incorpora informação do espaço de trabalho para ajustar dinamicamente o balanço entre exploração e explotação. Enquanto o EST seleciona nós de expansão com base exclusivamente na densidade local no espaço de configuração, o EET pondera essa seleção com uma estimativa de distância ao objetivo no espaço de trabalho, direcionando a busca para regiões promissoras sem abandonar a exploração de regiões mal cobertas. Os autores reportam ganhos de até três ordens de magnitude sobre planejadores do estado da arte em cenários reais de manipulação robótica.
+ 
+Por fim, diversas extensões abordam cenários mais realistas, incluindo planejamento cinodinâmico via RRT~\cite{LaValle1999RandomizedKP} e via EST~\cite{hsu2002randomized}, ambientes dinâmicos~\cite{guvenkaya2024local}, mapeamento orientado a risco~\cite{laconte2021lambda} e métodos reativos como campos potenciais~\cite{khatib1986real}. Essas contribuições evidenciam a consolidação dos métodos amostrados como ferramenta central em robótica móvel e manipulação.
+ 
+A \autoref{tab:trabalhos_relacionados} sintetiza os principais trabalhos discutidos, destacando seus algoritmos, categorias e contribuições.
+ 
+\subsection{Síntese dos Trabalhos Relacionados}
+ 
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+\begin{table}[h]
+    \centering
+    \renewcommand{\arraystretch}{1.4}
+    \begin{tabular}{P{3.5cm}P{2.2cm}P{2.5cm}P{4.8cm}}
+        \hline
+        \textbf{Trabalho} & \textbf{Algoritmo} & \textbf{Categoria} & \textbf{Contribuição Principal} \\
+        \hline
+        Zhang et al.~\cite{Zhang_2025}
+            & Revisão & Fundacional & Revisão contemporânea de métodos amostrados \\
+        Gammell~\cite{gammell2021asymptotically}
+            & Revisão & Fundacional & Revisão de métodos assintoticamente ótimos \\
+        \hline
+       
+        LaValle~\cite{LaValle1998RapidlyexploringRT}
+            & RRT & Completude & Introdução do RRT; viés de Voronoi \\
+        Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric}
+            & RRT & Completude & Prova formal de completude probabilística \\
+        Hsu et al.~\cite{hsu1997path}
+            & EST & Completude & Introdução do EST; espaços expansivos \\
+        Hsu et al.~\cite{hsu1999path}
+            & EST & Completude & Prova de completude probabilística via expansividade \\
+        \hline
+        Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF}
+            & RRT* & Otimalidade & Otimalidade assintótica; não-otimalidade do RRT e EST \\
+        Gammell et al.~\cite{6942976}
+            & Informed RRT* & Otimalidade & Amostragem informada em hiperelipsoide admissível \\
+        Nasir et al.~\cite{nasir2013rrtsmart}
+            & RRT*-SMART & Otimalidade & Aceleração da convergência via \textit{beacons} \\
+        Hauser e Zhou~\cite{hauser2016asymptotically}
+            & AO-x (EST/RRT) & Otimalidade & Meta-algoritmo AO para planj. cinodinâmico via EST \\
+        Rickert et al.~\cite{rickert2014balancing}
+            & EET & Otimalidade & Variante do EST com balanço exploração/explotação \\
+        \hline
+        LaValle e Kuffner~\cite{LaValle1999RandomizedKP}
+            & RRT (cin.) & Aplicado & Extensão cinodinâmica do RRT \\
+        Hsu et al.~\cite{hsu2002randomized}
+            & EST (cin.) & Aplicado & Extensão cinodinâmica do EST; obstáculos móveis \\
+        
+        \hline
+    \end{tabular}
+    \caption{Síntese dos principais trabalhos relacionados ao planejamento de caminhos baseado em amostragem.}
+    \label{tab:trabalhos_relacionados}
+\end{table}
+ 
