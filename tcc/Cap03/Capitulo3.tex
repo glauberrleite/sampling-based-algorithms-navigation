@@ -1,3 +1,573 @@
 \chapter{Metodologia}\label{cap:metodologia}
 %Fazer diagrama que descreve o fluxo do experimento
-\lipsum[7-12]
+
+Este capítulo descreve a metodologia adotada para implementação e avaliação dos algoritmos de planejamento de caminhos considerados neste trabalho. O objetivo é apresentar como os experimentos foram estruturados, quais ferramentas foram utilizadas, como os dados do ambiente foram extraídos, quais algoritmos foram avaliados e quais métricas foram empregadas para comparar os resultados.
+
+Inicialmente, apresenta-se uma visão geral do fluxo experimental. Em seguida, são descritas as tecnologias utilizadas, a comunicação entre os scripts em Python e o CoppeliaSim, a arquitetura do sistema de navegação, o processo de extração dos obstáculos, a construção do mapa, o algoritmo proposto, os algoritmos avaliados, o robô utilizado, os cenários de teste, as métricas e o protocolo experimental.
+
+\section{Visão geral}
+\label{sec:metodologia_visao_geral}
+
+Este trabalho compara algoritmos de planejamento de caminhos baseados em amostragem, com foco em uma variante híbrida denominada \emph{HybridEST}. O objetivo é verificar se essa variante apresenta vantagens em relação ao RRT e ao RRT-Connect em métricas como tempo de planejamento, tempo de execução, taxa de sucesso, erro final e qualidade do caminho.
+
+Todos os experimentos foram realizados no simulador CoppeliaSim com o robô PioneerP3DX. Para cada combinação de algoritmo e cenário, foram executadas múltiplas rodadas independentes, seguindo uma abordagem Monte Carlo. Ao final, os resultados foram agregados estatisticamente por meio de média e desvio-padrão.
+
+A Figura~\ref{fig:fluxo_experimento} apresenta o fluxo simplificado de uma rodada experimental. Em cada rodada, o sistema extrai o contexto do ambiente, constrói o mapa de planejamento, executa o algoritmo selecionado, verifica se um caminho válido foi encontrado, executa o trajeto no simulador e registra as métricas de desempenho. Esse processo é repetido até completar o número de rodadas definido para cada cenário.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.58\textwidth]{tcc/Cap03/img/fluxo-experimento.png}
+    \caption{Fluxo simplificado do experimento de avaliação dos algoritmos de planejamento.}
+    \label{fig:fluxo_experimento}
+\end{figure}
+
+Cada rodada experimental é composta pelas seguintes etapas:
+
+\begin{enumerate}
+    \item \textbf{Extração de contexto}: leitura do estado da simulação, incluindo pose do robô, posição do objetivo, obstáculos e limites do ambiente;
+    \item \textbf{Construção do mapa}: conversão das informações da cena para uma representação 2D discreta utilizada pelos planejadores;
+    \item \textbf{Planejamento}: execução do algoritmo selecionado até encontrar um caminho válido ou atingir o limite de tentativas;
+    \item \textbf{Pós-processamento}: aplicação de encurtamento por \textit{shortcut} e redensificação dos waypoints;
+    \item \textbf{Execução}: conversão do caminho para coordenadas do mundo e acionamento do controlador de rodas;
+    \item \textbf{Registro}: coleta das métricas e reinicialização da simulação para a próxima rodada.
+\end{enumerate}
+
+\section{Tecnologias e ferramentas utilizadas}
+\label{sec:tecnologias}
+
+A implementação foi desenvolvida em \textbf{Python~3}, escolhido pela disponibilidade de bibliotecas científicas consolidadas e pela integração com a API remota do CoppeliaSim. As principais bibliotecas utilizadas foram:
+
+\begin{itemize}
+    \item \textbf{Shapely}: utilizada para representar polígonos de obstáculos, aplicar a inflação pelo raio do robô e verificar colisões entre segmentos e polígonos;
+
+    \item \textbf{NumPy}: utilizada para operações vetoriais nos algoritmos de planejamento e no pós-processamento dos caminhos;
+
+    \item \textbf{Matplotlib}: utilizada para geração de gráficos comparativos e visualização dos caminhos planejados durante o desenvolvimento;
+
+    \item \textbf{coppeliasim-zmqremoteapi-client}: biblioteca oficial do CoppeliaSim utilizada para comunicação entre os scripts Python e o simulador.
+\end{itemize}
+
+O simulador utilizado foi o \textbf{CoppeliaSim}, anteriormente denominado V-REP, desenvolvido pela Coppelia Robotics, que oferece motor de física integrado, modelos de robôs reais e suporte a controle externo por meio de APIs.
+
+% Caso você tenha os dados do computador, descomente e preencha:
+% Todos os experimentos foram executados em um computador com processador \textbf{[INSERIR MODELO DO PROCESSADOR]}, \textbf{[INSERIR QUANTIDADE]}~GB de memória RAM e sistema operacional \textbf{[INSERIR SISTEMA OPERACIONAL]}. Essa informação é relevante porque métricas como o tempo de planejamento dependem diretamente da capacidade computacional da máquina utilizada.
+
+\section{Comunicação com o simulador}
+\label{sec:comunicacao_simulador}
+
+A comunicação entre os algoritmos de planejamento e o CoppeliaSim é feita pela \emph{ZMQ Remote API}. Essa interface permite que um script Python externo chame funções internas do simulador, como leitura de poses, extração de objetos da cena e envio de comandos aos motores, sem precisar de código embarcado dentro do próprio simulador.
+
+O Algoritmo~\ref{alg:comunicacao_zmq} descreve o padrão de comunicação utilizado em todas as rodadas experimentais: após estabelecer a conexão, o script lê o estado atual da simulação, executa o planejamento e o controle, e encerra a conexão ao fim da rodada.
+
+\begin{algorithm}[H]
+\caption{Padrão de comunicação com o CoppeliaSim}
+\label{alg:comunicacao_zmq}
+\begin{algorithmic}[1]
+\State Criar cliente ZMQ apontando para \texttt{localhost:23000}
+\State Obter referência ao objeto \texttt{sim}
+\State Iniciar simulação via \texttt{sim.startSimulation()}
+\Repeat
+    \State Ler posição e orientação do robô
+    \State Calcular comandos de velocidade $(v,\omega)$
+    \State Enviar comandos para as rodas via \texttt{sim.setJointTargetVelocity}
+    \State Aguardar $\Delta t = 50~\text{ms}$
+\Until{objetivo atingido \textbf{ou} tempo limite esgotado}
+\State Parar motores enviando velocidade zero
+\State Encerrar rodada via \texttt{sim.stopSimulation()}
+\end{algorithmic}
+\end{algorithm}
+
+Cada chamada à API bloqueia até receber resposta do simulador, garantindo que o estado lido seja sempre consistente com os comandos enviados. As principais funções utilizadas nos experimentos foram:
+
+\begin{itemize}
+    \item \texttt{getObjectPosition} e \texttt{getObjectOrientation}: leitura da posição e orientação do robô e do objetivo a cada ciclo de controle;
+
+    \item \texttt{getObjectsInTree} e \texttt{getObjectAlias}: listagem dos objetos da cena para identificar os obstáculos pelo prefixo \texttt{wall\_};
+
+    \item \texttt{getObjectMatrix} e \texttt{getObjectFloatParam}: extração da geometria dos obstáculos e transformação para o sistema de coordenadas do mundo;
+
+    \item \texttt{setJointTargetVelocity}: envio de comandos de velocidade para as rodas do robô;
+
+    \item \texttt{stopSimulation} e \texttt{startSimulation}: reinício da simulação entre rodadas consecutivas.
+\end{itemize}
+
+\section{Arquitetura do sistema de navegação}
+\label{sec:arquitetura_sistema}
+
+O sistema foi dividido em três módulos independentes que se comunicam por meio de estruturas de dados. Essa separação permite trocar o algoritmo de planejamento sem alterar o controlador de rodas ou o processo de extração do ambiente.
+
+\begin{enumerate}
+    \item \textbf{Extração de contexto}: lê o estado da simulação e constrói o \emph{PlanningContext}, estrutura que contém a pose inicial do robô, a posição do objetivo, os obstáculos e os limites do mapa. Após essa etapa, o planejador não precisa mais acessar diretamente o simulador.
+
+    \item \textbf{Planejamento isolado}: recebe o \emph{PlanningContext} e executa o algoritmo selecionado em um mapa 2D discreto de $100 \times 100$ pixels. O caminho resultante passa por pós-processamento e é convertido para coordenadas do mundo.
+
+    \item \textbf{Controle de rodas}: recebe os waypoints em coordenadas do mundo e aciona os motores do robô para executar o caminho planejado. Não há replanejamento durante a execução.
+\end{enumerate}
+
+Essa divisão facilita a reutilização dos módulos e permite avaliar diferentes planejadores sob as mesmas condições de controle e simulação.
+
+\subsection{Pós-processamento do caminho planejado}
+\label{subsec:pos_processamento}
+
+Os algoritmos baseados em amostragem tendem a produzir caminhos compostos por segmentos irregulares, com mudanças bruscas de direção e número elevado de waypoints. Por esse motivo, após a obtenção de um caminho válido, aplica-se uma etapa de pós-processamento composta por duas operações: encurtamento por \textit{shortcut} e redensificação.
+
+O encurtamento por \textit{shortcut} tem como objetivo remover waypoints intermediários desnecessários. Seja o caminho inicialmente retornado pelo planejador dado por
+
+\begin{equation}
+    P = (q_0, q_1, \ldots, q_n),
+    \label{eq:caminho_original}
+\end{equation}
+
+em que $q_0$ representa a configuração inicial e $q_n$ representa a configuração objetivo. A partir de um waypoint âncora $q_i$, busca-se o waypoint mais distante $q_j$, com $j > i$, tal que o segmento direto entre $q_i$ e $q_j$ seja livre de colisão. Quando essa condição é satisfeita, os waypoints intermediários entre $q_i$ e $q_j$ são removidos. Esse processo é repetido até o final do caminho.
+
+A condição para remoção dos pontos intermediários é dada por
+
+\begin{equation}
+    \overline{q_iq_j} \cap Q_{\mathrm{obs}} = \emptyset,
+    \label{eq:shortcut_collision_free}
+\end{equation}
+
+isto é, o segmento direto entre $q_i$ e $q_j$ não deve interceptar regiões ocupadas por obstáculos. Dessa forma, o procedimento reduz o comprimento e a irregularidade do caminho sem violar a restrição de colisão.
+
+O Algoritmo~\ref{alg:shortcut} apresenta o procedimento de encurtamento utilizado.
+
+\begin{algorithm}[H]
+\caption{Encurtamento de caminho por \textit{shortcut}}
+\label{alg:shortcut}
+\begin{algorithmic}[1]
+\Require Caminho $P = (q_0, q_1, \ldots, q_n)$
+\Ensure Caminho encurtado $P'$
+\State $P' \gets [q_0]$
+\State $i \gets 0$
+\While{$i < n$}
+    \State $j \gets n$
+    \While{$j > i+1$}
+        \If{$\textsc{CollisionFree}(q_i, q_j)$}
+            \State adicionar $q_j$ a $P'$
+            \State $i \gets j$
+            \State sair do laço interno
+        \Else
+            \State $j \gets j - 1$
+        \EndIf
+    \EndWhile
+    \If{$j = i+1$}
+        \State adicionar $q_{i+1}$ a $P'$
+        \State $i \gets i+1$
+    \EndIf
+\EndWhile
+\State \Return $P'$
+\end{algorithmic}
+\end{algorithm}
+
+Após o encurtamento, aplica-se a redensificação do caminho. Essa etapa insere novos pontos intermediários por interpolação linear, garantindo que a distância entre waypoints consecutivos não ultrapasse um espaçamento máximo definido. Para cada segmento entre dois pontos consecutivos $q_i$ e $q_{i+1}$, calcula-se
+
+\begin{equation}
+    n_i =
+    \left\lceil
+    \frac{\|q_{i+1} - q_i\|}{s_{\max}}
+    \right\rceil,
+    \label{eq:densificacao_num_segmentos}
+\end{equation}
+
+em que $s_{\max}$ representa o espaçamento máximo permitido entre waypoints. Em seguida, são gerados pontos interpolados da forma
+
+\begin{equation}
+    q_i^{(k)} =
+    q_i +
+    \frac{k}{n_i}(q_{i+1} - q_i),
+    \qquad k = 1,2,\ldots,n_i.
+    \label{eq:densificacao_interpolacao}
+\end{equation}
+
+O Algoritmo~\ref{alg:densificacao} apresenta esse procedimento.
+
+\begin{algorithm}[H]
+\caption{Redensificação do caminho por interpolação linear}
+\label{alg:densificacao}
+\begin{algorithmic}[1]
+\Require Caminho encurtado $P'$, espaçamento máximo $s_{\max}$
+\Ensure Caminho redensificado $P''$
+\State $P'' \gets [q_0]$
+\For{cada segmento $(q_i, q_{i+1})$ em $P'$}
+    \State $n_i \gets \left\lceil \frac{\|q_{i+1}-q_i\|}{s_{\max}} \right\rceil$
+    \For{$k \gets 1$ até $n_i$}
+        \State $q \gets q_i + \frac{k}{n_i}(q_{i+1}-q_i)$
+        \State adicionar $q$ a $P''$
+    \EndFor
+\EndFor
+\State \Return $P''$
+\end{algorithmic}
+\end{algorithm}
+
+Na implementação, o valor de $s_{\max}$ é definido em metros pelo parâmetro de espaçamento de waypoints e convertido para unidades do mapa discreto. Após a redensificação, o caminho resultante é validado por verificação de colisão antes de ser enviado ao controlador.
+
+\section{Extração de obstáculos e construção do mapa}
+\label{sec:extracao_obstaculos_mapa}
+
+Antes de cada rodada, o ambiente 3D do CoppeliaSim é convertido em uma representação 2D utilizada pelo planejador. Esse processo ocorre em três etapas.
+
+\textbf{1. Identificação dos obstáculos.} O sistema lista todos os objetos da cena cujo nome começa com o prefixo \texttt{wall\_}. Esse prefixo é uma convenção adotada na construção das cenas: qualquer objeto que deve ser tratado como obstáculo recebe esse nome.
+
+\textbf{2. Extração de geometria.} Para cada obstáculo, os vértices do \emph{bounding box} local são transformados para o sistema de coordenadas do mundo usando a matriz de transformação do objeto. Essa abordagem evita a superestimação que ocorreria ao utilizar \emph{bounding boxes} alinhadas aos eixos globais em objetos rotacionados.
+
+\textbf{3. Inflação e mapeamento.} Cada polígono é inflado por uma margem igual ao raio do robô, $r = 0{,}18~\text{m}$, usando a operação de \emph{buffer} da biblioteca Shapely. Essa inflação permite tratar o robô como um ponto no espaço de planejamento: um caminho é livre se nenhum segmento intercepta os polígonos inflados.
+
+Em seguida, os limites do mundo são detectados a partir do objeto \texttt{floor} da cena e utilizados para escalar o ambiente para um mapa discreto de $100 \times 100$ pixels. Seja o domínio real da cena definido por
+
+\begin{equation}
+    [x_{\min}, x_{\max}] \times [y_{\min}, y_{\max}].
+    \label{eq:world_bounds}
+\end{equation}
+
+A resolução espacial equivalente de cada célula do mapa é dada por
+
+\begin{equation}
+    r_x = \frac{x_{\max} - x_{\min}}{100},
+    \qquad
+    r_y = \frac{y_{\max} - y_{\min}}{100}.
+    \label{eq:map_resolution}
+\end{equation}
+
+Assim, cada pixel representa aproximadamente $r_x$ metros no eixo $x$ e $r_y$ metros no eixo $y$. A discretização de $100 \times 100$ pixels foi adotada como compromisso entre custo computacional e fidelidade geométrica. Uma resolução maior aumenta o custo de planejamento, enquanto uma resolução muito baixa pode subamostrar obstáculos ou eliminar passagens estreitas.
+
+Nos cenários avaliados, os limites reais do ambiente foram verificados antes dos experimentos para garantir que a resolução equivalente do mapa fosse compatível com o raio do robô e com a largura das passagens existentes.
+
+\begin{table}[H]
+\centering
+\caption{Resolução equivalente do mapa discreto nos cenários avaliados.}
+\label{tab:resolucao_mapa}
+\begin{tabular}{lccc}
+\toprule
+Cenário & Dimensão real & Mapa discreto & Resolução \\
+\midrule
+Cena 1 & $5{,}00~\text{m} \times 5{,}00~\text{m}$ & $100 \times 100$ & $0{,}05~\text{m/pixel}$ \\
+Cena 2 & $5{,}00~\text{m} \times 5{,}00~\text{m}$ & $100 \times 100$ & $0{,}05~\text{m/pixel}$ \\
+Cena 3 & $5{,}00~\text{m} \times 5{,}00~\text{m}$ & $100 \times 100$ & $0{,}05~\text{m/pixel}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Algoritmo proposto: HybridEST}
+\label{sec:hybridest_proposto}
+
+O RRT e o EST apresentam comportamentos complementares que motivam a criação de uma variante híbrida. O RRT expande a árvore rapidamente em espaços abertos devido ao viés implícito de Voronoi, mas tende a concentrar
+amostras em regiões já bem exploradas à medida que a árvore cresce, o que reduz a eficiência em ambientes com obstáculos dispersos. O EST, por outro lado, evita essa concentração ao selecionar nós de baixa densidade para
+expansão, mas não possui mecanismo de atração global, o que pode torná-lo lento para conectar regiões distantes do espaço livre.
+
+O \emph{HybridEST} é proposto para combinar esses dois comportamentos por meio de um parâmetro $\alpha \in (0, 1)$ que controla a proporção entre amostragem global (componente RRT) e expansão orientada por densidade
+(componente EST). O objetivo é obter um algoritmo que explore o espaço de forma eficiente tanto em regiões abertas quanto em ambientes com múltiplos obstáculos dispersos.
+
+% --- Subseção de cenários e motivação dos testes ---
+\subsection{Cenários de Aplicação e Justificativa dos Experimentos}
+\label{subsec:cenarios_hybridest}
+
+A hipótese central deste trabalho é que o HybridEST pode apresentar vantagens sobre o RRT puro em ambientes com espaço livre fragmentado, como aqueles com muitos obstáculos pequenos dispersos. Nesses casos, a componente EST tende a distribuir as amostras de forma mais uniforme pelo espaço livre, evitando que a árvore se concentre em regiões já cobertas e deixe outras inexploradas.
+
+Em ambientes com poucos obstáculos grandes e corredores definidos, como os de cena1 e cena2, espera-se que o comportamento do HybridEST seja próximo ao do RRT, já que o espaço livre é contínuo e não exige uma
+exploração especialmente uniforme. Por isso, a cena3 foi criada com obstáculos dispersos justamente para avaliar se a vantagem teórica do componente EST se manifesta em condições práticas de simulação.
+
+Foram testadas duas configurações do HybridEST para avaliar o efeito
+do parâmetro $\alpha$:
+
+\begin{itemize}
+    \item $\alpha = 0{,}70$: maior proporção de amostragem global. O
+    algoritmo se comporta de forma próxima ao RRT, com exploração rápida
+    do espaço. É a configuração esperada para ambientes mais abertos.
+
+    \item $\alpha = 0{,}35$: maior proporção de expansão por densidade.
+    O algoritmo depende mais do componente EST para guiar a exploração.
+    É a configuração esperada para ambientes com espaço livre mais
+    fragmentado.
+\end{itemize}
+
+Comparar essas duas configurações entre si e com o RRT e o RRT-Connect
+permite identificar em que condições o parâmetro $\alpha$ influencia
+o desempenho e se o custo computacional adicional do HybridEST é
+justificado pelos resultados obtidos.
+
+% --- Conteúdo que você já tem ---
+O algoritmo HybridEST é a variante proposta neste trabalho para combinar
+características de exploração global do RRT com o controle de densidade
+local do EST...
+
+O algoritmo \emph{HybridEST} é a variante proposta neste trabalho para combinar características de exploração global do RRT com o controle de densidade local do EST. A motivação para essa combinação está no fato de que o RRT tende a explorar rapidamente regiões amplas do espaço de configuração, devido ao seu viés implícito de Voronoi, enquanto o EST favorece a expansão a partir de regiões pouco densamente amostradas.
+
+A proposta busca equilibrar esses dois comportamentos. Em ambientes com grandes regiões livres, a componente RRT contribui para uma expansão rápida da árvore. Em regiões com maior concentração de obstáculos ou com passagens mais restritas, a componente inspirada no EST favorece a expansão a partir de nós localizados em áreas menos exploradas, reduzindo a concentração excessiva de amostras em regiões já densamente cobertas.
+
+A cada iteração, o HybridEST escolhe entre dois modos de expansão. Com probabilidade $\alpha$, executa-se uma expansão global do tipo RRT. Com probabilidade $1-\alpha$, executa-se uma expansão local baseada em densidade, inspirada no EST. Dessa forma, o parâmetro $\alpha$ controla o balanço entre exploração global e expansão orientada por densidade.
+
+\subsection{Estimativa de densidade local}
+\label{subsec:densidade_hybridest}
+
+Para realizar a expansão baseada em densidade, o algoritmo estima a densidade local ao redor dos nós da árvore. Seja $T$ a árvore de planejamento e seja $q_i \in T$ um nó candidato à expansão. A densidade local de $q_i$ é estimada pela quantidade de vértices da árvore dentro de um raio $r_d$, conforme a Equação~\ref{eq:densidade_hybridest}.
+
+\begin{equation}
+    \rho(q_i) =
+    \left|
+    \left\{
+        q_j \in T \mid d(q_i,q_j) \leq r_d
+    \right\}
+    \right|.
+    \label{eq:densidade_hybridest}
+\end{equation}
+
+Nessa expressão, $d(q_i,q_j)$ representa a distância entre dois nós no mapa discreto, e $r_d$ é o raio utilizado para estimar a vizinhança local. Quanto menor o valor de $\rho(q_i)$, menor a concentração de nós ao redor de $q_i$ e, portanto, maior o interesse em expandir a árvore a partir dessa região.
+
+Na implementação, para reduzir o custo computacional, a densidade não é calculada necessariamente para todos os nós da árvore a cada iteração. Em vez disso, seleciona-se um conjunto de candidatos e escolhe-se o nó com menor densidade local entre eles. Esse procedimento aproxima o comportamento do EST sem exigir uma avaliação global completa em todas as iterações.
+
+\subsection{Funcionamento do algoritmo}
+\label{subsec:funcionamento_hybridest}
+
+O Algoritmo~\ref{alg:hybridest} apresenta o funcionamento geral da variante proposta. O algoritmo recebe como entrada a configuração inicial, a região objetivo, o limite de iterações e o parâmetro $\alpha$. A árvore é inicializada com $q_{\mathrm{start}}$ e, a cada iteração, escolhe-se probabilisticamente entre uma expansão global e uma expansão local baseada em densidade.
+
+\begin{algorithm}[H]
+\caption{HybridEST}
+\label{alg:hybridest}
+\begin{algorithmic}[1]
+\Require Configuração inicial $q_{\mathrm{start}}$, região objetivo $Q_{\mathrm{goal}}$, número máximo de iterações $K$, parâmetro $\alpha$
+\Ensure Caminho válido até $Q_{\mathrm{goal}}$, ou falha
+\State $T \gets \{q_{\mathrm{start}}\}$
+\For{$k \gets 1$ até $K$}
+    \State Sortear $u \sim U(0,1)$
+    \If{$u < \alpha$}
+        \State $q_{\mathrm{rand}} \gets \textsc{SampleGlobal}(Q)$
+        \State $q_{\mathrm{near}} \gets \textsc{Nearest}(T, q_{\mathrm{rand}})$
+        \State $q_{\mathrm{new}} \gets \textsc{Steer}(q_{\mathrm{near}}, q_{\mathrm{rand}})$
+    \Else
+        \State $C \gets \textsc{SelectCandidates}(T)$
+        \State $q_{\mathrm{near}} \gets \textsc{LowestDensityNode}(C, r_d)$
+        \State $q_{\mathrm{new}} \gets \textsc{SampleLocal}(q_{\mathrm{near}})$
+    \EndIf
+
+    \If{$\textsc{CollisionFree}(q_{\mathrm{near}}, q_{\mathrm{new}})$}
+        \State adicionar $q_{\mathrm{new}}$ a $T$
+        \State adicionar a aresta $(q_{\mathrm{near}}, q_{\mathrm{new}})$ a $T$
+        \If{$q_{\mathrm{new}} \in Q_{\mathrm{goal}}$}
+            \State \Return caminho obtido por retrocesso em $T$
+        \EndIf
+    \EndIf
+\EndFor
+\State \Return falha
+\end{algorithmic}
+\end{algorithm}
+
+Na expansão global, o algoritmo se comporta de forma semelhante ao RRT: uma amostra $q_{\mathrm{rand}}$ é gerada no espaço de configuração, o nó mais próximo da árvore é selecionado e uma nova configuração é criada por meio do operador \textsc{Steer}. Na expansão local, o algoritmo seleciona candidatos na árvore, estima suas densidades locais e expande a partir do nó menos denso, gerando uma amostra em sua vizinhança.
+
+\subsection{Preservação da completude probabilística}
+\label{subsec:completude_hybridest}
+
+A completude probabilística do HybridEST pode ser discutida a partir da componente RRT mantida no algoritmo. Conforme apresentado na Seção~\ref{subsec:completude_rrt_est}, o RRT geométrico é probabilisticamente completo sob a hipótese de existência de um caminho viável com folga positiva em relação aos obstáculos.
+
+Considere que a componente RRT do HybridEST é selecionada em cada iteração com probabilidade $\alpha > 0$. Se, no argumento de completude do RRT, existe uma probabilidade $p_i > 0$ de avançar de uma região $B_i$ para a região seguinte $B_{i+1}$, então, no HybridEST, essa mesma transição possui probabilidade pelo menos
+
+\begin{equation}
+    p_i' = \alpha p_i > 0.
+    \label{eq:probabilidade_hybridest}
+\end{equation}
+
+Como $\alpha > 0$ e $p_i > 0$, a probabilidade de avanço permanece positiva. Portanto, considerando uma sequência finita de regiões ao longo de um caminho viável com folga positiva, o HybridEST preserva o argumento de completude probabilística herdado da componente RRT.
+
+O Algoritmo~\ref{alg:prova_completude_hybridest} resume esse argumento em forma de pseudocódigo de prova.
+
+\begin{algorithm}[H]
+\caption{Esquema de preservação da completude probabilística do HybridEST}
+\label{alg:prova_completude_hybridest}
+\begin{algorithmic}[1]
+\Require Componente RRT executada com probabilidade $\alpha > 0$
+\Ensure Concluir que o HybridEST preserva completude probabilística
+\State Considerar uma cobertura finita $B_0, B_1, \ldots, B_m$ de um caminho viável
+\For{$i \gets 0$ até $m-1$}
+    \State Pelo argumento do RRT, existe $p_i > 0$ de avançar de $B_i$ para $B_{i+1}$
+    \State No HybridEST, a componente RRT é selecionada com probabilidade $\alpha$
+    \State $p_i' \gets \alpha p_i$
+    \State Como $\alpha > 0$ e $p_i > 0$, então $p_i' > 0$
+\EndFor
+\State Como o caminho é coberto por um número finito de regiões, alcançar o objetivo exige uma sequência finita de avanços
+\State Como cada avanço possui probabilidade positiva, a probabilidade de falha tende a zero
+\State Concluir que o HybridEST preserva completude probabilística
+\end{algorithmic}
+\end{algorithm}
+
+A componente EST atua como um mecanismo adicional de exploração baseado em densidade. Sob hipóteses de expansividade do espaço livre, essa componente também pode contribuir para a expansão da árvore em regiões pouco exploradas. Entretanto, para a preservação mínima da completude probabilística do HybridEST, é suficiente que a componente RRT seja executada com probabilidade não nula.
+
+\subsection{Limitação quanto à otimalidade}
+\label{subsec:otimalidade_hybridest}
+
+Embora o HybridEST preserve a completude probabilística sob as hipóteses discutidas, a combinação entre RRT e EST não garante, por si só, otimalidade assintótica. Assim como o RRT e o EST em suas versões padrão, o HybridEST não possui mecanismos de escolha de melhor pai, reconexão local ou redução progressiva do custo do caminho.
+
+Portanto, neste trabalho, o HybridEST é avaliado como uma estratégia de melhoria da exploração e da cobertura do espaço livre, e não como um planejador assintoticamente ótimo. Para obter essa propriedade, seria necessário incorporar mecanismos adicionais semelhantes aos utilizados no RRT*, como \textit{rewiring} ou outro procedimento de otimização incremental.
+
+\section{Algoritmos avaliados}
+\label{sec:algoritmos_avaliados}
+
+Foram avaliadas quatro configurações de algoritmos. O RRT e o RRT-Connect, apresentados no Capítulo~\ref{cap:fundamentacao}, servem como referências de desempenho. As duas configurações do HybridEST correspondem à variante proposta neste trabalho, avaliada com diferentes valores do parâmetro $\alpha$.
+
+As configurações avaliadas foram:
+
+\begin{itemize}
+    \item \textbf{RRT}: planejador incremental baseado em amostragem global e expansão a partir do vizinho mais próximo;
+
+    \item \textbf{RRT-Connect}: variante bidirecional do RRT, utilizada como referência por sua eficiência prática na busca por caminhos viáveis;
+
+    \item \textbf{HybridEST exploratório} ($\alpha = 0{,}70$): configuração com maior proporção de expansão global, aproximando-se mais do comportamento do RRT;
+
+    \item \textbf{HybridEST conservador} ($\alpha = 0{,}35$): configuração com maior proporção de expansão baseada em densidade, aproximando-se mais do comportamento do EST.
+\end{itemize}
+
+Os parâmetros de cada configuração estão na Tabela~\ref{tab:parametros_algoritmos}. Para permitir uma comparação mais controlada, os parâmetros principais foram equalizados entre os algoritmos, mantendo o mesmo limite de iterações, número de tentativas, passo máximo e espaçamento de waypoints.
+
+\begin{table}[H]
+\centering
+\caption{Parâmetros dos algoritmos utilizados nos experimentos.}
+\label{tab:parametros_algoritmos}
+\begin{tabular}{lcccc}
+\toprule
+Parâmetro & RRT & RRT-Connect
+    & \shortstack{HybridEST\\($\alpha{=}0{,}70$)}
+    & \shortstack{HybridEST\\($\alpha{=}0{,}35$)} \\
+\midrule
+Passo máximo (pixels)          & 1,2      & 1,2      & 1,2      & 1,2      \\
+Taxa de amostragem do objetivo & 15\%     & 15\%     & 15\%     & 15\%     \\
+Iterações máximas              & 12\,000  & 12\,000  & 12\,000  & 12\,000  \\
+Tentativas de planejamento     & 25       & 25       & 25       & 25       \\
+Taxa global $\alpha$           & --       & --       & 0,70     & 0,35     \\
+Raio de densidade (pixels)     & --       & --       & 4        & 4        \\
+Raio de amostragem local       & --       & --       & 3        & 3        \\
+Candidatos de densidade        & --       & --       & 30       & 40       \\
+Raio do robô (m)               & 0,18     & 0,18     & 0,18     & 0,18     \\
+Espaçamento de waypoints (m)   & 0,06     & 0,06     & 0,06     & 0,06     \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Robô e controlador}
+\label{sec:robo_controlador}
+
+O robô utilizado é o \textbf{PioneerP3DX}, um robô diferencial com duas rodas motrizes amplamente usado em pesquisas de robótica móvel. As dimensões relevantes para o controle são: distância entre rodas de $0{,}381~\text{m}$ e raio de roda de $0{,}0975~\text{m}$.
+
+O controlador de rodas funciona em ciclos de $50~\text{ms}$. A cada ciclo, a pose do robô é lida e o erro de orientação em relação ao waypoint alvo é calculado. A lei de controle aplicada é
+
+\begin{equation}
+    \omega = K_p \cdot e_\theta, \qquad
+    v = v_{\max} \cdot \max\!\left(0,\;1 - \frac{|e_\theta|}{\pi}\right),
+    \label{eq:controlador}
+\end{equation}
+
+em que $K_p = 2{,}0$ é o ganho proporcional, $e_\theta \in [-\pi,\pi]$ é o erro de orientação, $\omega$ é a velocidade angular e $v_{\max} = 0{,}12~\text{m/s}$ é a velocidade linear máxima.
+
+Quando $|e_\theta| > 1{,}2~\text{rad}$, a velocidade linear é zerada e o robô gira no lugar até se realinhar com o waypoint. O controlador também utiliza um mecanismo de \emph{lookahead} e uma estratégia de recuperação de bloqueio.
+
+\begin{itemize}
+    \item \textbf{Lookahead}: o alvo de orientação é calculado em relação a um waypoint à frente do atual, deixando a trajetória mais suave. Quando o robô está a menos de $0{,}03~\text{m}$ de um obstáculo, o \emph{lookahead} é reduzido ao waypoint corrente para evitar que o robô corte quinas;
+
+    \item \textbf{Recuperação de bloqueio}: se o robô não avançar em direção ao waypoint atual por mais de $4{,}0~\text{s}$, esse waypoint é descartado e o controlador passa para o seguinte.
+\end{itemize}
+
+\section{Cenários de teste}
+\label{sec:cenarios_teste}
+
+Foram usados três cenários no CoppeliaSim com complexidades diferentes:
+
+\begin{itemize}
+    \item \textbf{Cena 1}: ambiente com obstáculos grandes e corredores definidos, semelhante a um espaço interior. É o cenário de maior complexidade, com caminhos de aproximadamente 187 waypoints em média;
+
+    \item \textbf{Cena 2}: ambiente com obstáculos maiores e menos passagens estreitas, resultando em mais espaço livre. Serve como referência de menor complexidade, com caminhos de aproximadamente 129 waypoints;
+
+    \item \textbf{Cena 3}: versão da Cena 1 com 16 obstáculos cúbicos pequenos, de dimensões $0{,}25 \times 0{,}25 \times 0{,}35~\text{m}$, dispersos pelo espaço livre. Esse cenário foi criado para testar os algoritmos em um ambiente com muitos obstáculos pequenos, condição teoricamente favorável ao componente EST do HybridEST.
+\end{itemize}
+
+Em todos os cenários, o ponto de início é a posição inicial do robô na cena e o objetivo é definido pelo objeto \texttt{GoalConfiguration} posicionado no CoppeliaSim.
+
+A Figura~\ref{fig:cenarios_teste} apresenta uma visão superior dos três cenários utilizados. Em cada ambiente, o robô inicia na posição definida pela cena e o objetivo é representado pelo objeto \texttt{GoalConfiguration}.
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{tcc/Cap03/img/cena1.png}
+        \caption{Cena 1}
+        \label{fig:cena1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{tcc/Cap03/img/cena2.png}
+        \caption{Cena 2}
+        \label{fig:cena2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{tcc/Cap03/img/cena3.png}
+        \caption{Cena 3}
+        \label{fig:cena3}
+    \end{subfigure}
+
+    \caption{Visão superior dos cenários de teste utilizados nos experimentos no CoppeliaSim.}
+    \label{fig:cenarios_teste}
+\end{figure}
+
+\section{Métricas de avaliação}
+\label{sec:metricas_avaliacao}
+
+As seguintes métricas foram registradas em cada rodada:
+
+\begin{itemize}
+    \item \textbf{Taxa de sucesso}: proporção de rodadas em que o robô chegou ao objetivo com erro final abaixo de $0{,}15~\text{m}$ dentro do tempo máximo de $120~\text{s}$;
+
+    \item \textbf{Tempo de planejamento} ($t_{\text{plan}}$): tempo desde o início do algoritmo até encontrar um caminho válido, em segundos;
+
+    \item \textbf{Tempo de execução} ($t_{\text{exec}}$): tempo desde o início do controle de rodas até a parada do robô, em segundos. Calculado apenas para rodadas bem-sucedidas;
+
+    \item \textbf{Erro final} ($e_{\text{final}}$): distância euclidiana entre a posição final do robô e o objetivo, em metros;
+
+    \item \textbf{Clearance mínima} ($c_{\text{min}}$): menor distância entre qualquer waypoint do caminho planejado e o obstáculo mais próximo, medida após a inflação pelo raio do robô. Essa métrica indica a margem de segurança adicional além da garantida pelo parâmetro \texttt{robot\_radius}.
+\end{itemize}
+
+\section{Protocolo experimental}
+\label{sec:protocolo_experimental}
+
+Para cada combinação de algoritmo e cenário, foram realizadas $N = 20$ rodadas independentes. Essa abordagem de avaliação por Monte Carlo é necessária porque os algoritmos baseados em amostragem são estocásticos: duas execuções com os mesmos parâmetros podem gerar caminhos e tempos de planejamento diferentes. Com $N = 20$, é possível calcular média e desvio-padrão com variância suficientemente controlada para as comparações~\cite{lavalle2006planning}.
+
+O Algoritmo~\ref{alg:protocolo_experimental} apresenta o protocolo experimental adotado em cada combinação de algoritmo e cenário.
+
+\begin{algorithm}[H]
+\caption{Protocolo experimental por algoritmo e cenário}
+\label{alg:protocolo_experimental}
+\begin{algorithmic}[1]
+\Require Algoritmo $A$, cenário $S$, número de rodadas $N$
+\Ensure Arquivo CSV com métricas experimentais
+\For{$r \gets 1$ até $N$}
+    \State Reiniciar simulação
+    \State Aguardar estabilização física da cena
+    \State Extrair contexto de planejamento
+    \State $sucesso\_planejamento \gets$ falso
+    \For{cada tentativa de planejamento permitida}
+        \State Executar algoritmo $A$ até o limite de iterações
+        \If{caminho válido encontrado}
+            \State Aplicar \textit{shortcut} e redensificação
+            \State Converter caminho para coordenadas do mundo
+            \State $sucesso\_planejamento \gets$ verdadeiro
+            \State sair do laço de tentativas
+        \EndIf
+    \EndFor
+    \If{$sucesso\_planejamento =$ falso}
+        \State Registrar falha com motivo \texttt{no\_path}
+        \State Salvar métricas da rodada
+        \State continuar para próxima rodada
+    \EndIf
+    \State Executar caminho com controlador de rodas
+    \State Verificar condição de término: sucesso, \textit{timeout} ou bloqueio
+    \State Registrar métricas da rodada
+    \State Salvar resultados em CSV
+\EndFor
+\State Calcular média e desvio-padrão das métricas
+\end{algorithmic}
+\end{algorithm}
+
+Entre rodadas consecutivas, a simulação é reiniciada por meio das chamadas \texttt{stopSimulation} e \texttt{startSimulation}, aguardando-se $2{,}0~\text{s}$ para estabilização física da cena. Um verificador de distância confirma que o robô saiu da região do objetivo antes de prosseguir, evitando rodadas em que o planejador recebe como entrada um estado inicial já próximo ao destino.
+
+Para cada rodada, o planejador pode realizar até $A$ tentativas independentes, em que $A$ corresponde ao parâmetro ``Tentativas de planejamento'' apresentado na Tabela~\ref{tab:parametros_algoritmos}. Em cada tentativa, uma nova instância do planejador é criada e executada até atingir o limite de iterações definido para o algoritmo. Caso um caminho válido seja encontrado, as tentativas são interrompidas e a rodada segue para a etapa de execução. Caso nenhuma tentativa encontre caminho válido, a rodada é registrada como falha com motivo \texttt{no\_path}.
+
+Durante a execução, a rodada termina quando o robô chega ao objetivo, quando o tempo máximo é esgotado ou quando o controlador detecta bloqueio permanente. Os resultados são salvos de forma incremental ao fim de cada preset, para que dados parciais sejam preservados em caso de interrupção. As estatísticas finais de média ($\mu$) e desvio-padrão ($\sigma$) são calculadas ao fim de todas as rodadas, com as métricas de execução calculadas apenas sobre as rodadas bem-sucedidas.

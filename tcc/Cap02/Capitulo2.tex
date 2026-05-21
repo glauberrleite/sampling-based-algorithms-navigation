@@ -386,15 +386,31 @@ Essas diferenças são relevantes para este trabalho, pois a variante híbrida p
 Os algoritmos de planejamento de movimento podem ser analisados a partir de propriedades formais relacionadas à existência de solução, à capacidade de encontrá-la e à qualidade do caminho obtido. Essas propriedades permitem comparar planejadores não apenas pelo desempenho experimental, mas também pelas garantias teóricas associadas ao seu funcionamento.
 
 Nesta seção, essas propriedades são discutidas sob a perspectiva de projeto e análise de algoritmos. O objetivo não é reproduzir integralmente as provas formais da literatura, mas explicitar os argumentos fundamentais utilizados para justificar propriedades como completude probabilística e otimalidade assintótica no contexto dos algoritmos discutidos anteriormente.
-
 \subsection{Completude probabilística no RRT e no EST}
 \label{subsec:completude_rrt_est}
 
 Embora o RRT e o EST sejam ambos planejadores probabilísticos baseados em árvores, suas garantias de completude probabilística são obtidas por argumentos diferentes. No RRT, a análise costuma partir da existência de um caminho viável com folga positiva em relação aos obstáculos. No EST, por outro lado, a prova depende de propriedades de expansividade do espaço livre, que garantem que a árvore consiga continuar avançando para regiões ainda pouco exploradas.
 
-No caso do RRT geométrico, Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} mostram que a completude probabilística pode ser demonstrada assumindo que existe uma solução com folga positiva. Essa hipótese é importante porque garante que o caminho solução não tangencia obstáculos. Assim, existe uma vizinhança ao redor desse caminho que permanece inteiramente contida em $Q_{\mathrm{free}}$.
+Seja $A_k$ o evento de que o planejador encontrou uma solução após $k$ iterações. Um planejador é dito probabilisticamente completo quando a probabilidade de sucesso tende a $1$ à medida que o número de iterações cresce, conforme indicado na Equação~\ref{eq:def_completude_probabilistica}.
+
+\begin{equation}
+    \lim_{k \rightarrow \infty} \mathbb{P}(A_k) = 1.
+    \label{eq:def_completude_probabilistica}
+\end{equation}
+
+De forma equivalente, a probabilidade de falha tende a zero:
+
+\begin{equation}
+    \lim_{k \rightarrow \infty} \mathbb{P}(A_k^c) = 0,
+    \label{eq:def_falha_probabilistica}
+\end{equation}
+
+em que $A_k^c$ representa o evento de falha após $k$ iterações. A seguir, essa propriedade é analisada para o RRT e para o EST.
 
 \paragraph{Ideia da prova para o RRT:}
+
+No caso do RRT geométrico, Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} mostram que a completude probabilística pode ser demonstrada assumindo que existe uma solução com folga positiva. Essa hipótese é importante porque garante que o caminho solução não tangencia obstáculos. Assim, existe uma vizinhança ao redor desse caminho que permanece inteiramente contida em $Q_{\mathrm{free}}$.
+
 Considere um caminho válido $\pi$ de $q_{\mathrm{start}}$ até a região objetivo, inteiramente contido em $Q_{\mathrm{free}}$, com folga positiva $\delta > 0$. Essa folga permite cobrir o caminho por uma sequência finita de bolas abertas, conforme indicado na Equação~\ref{eq:rrt_cobertura_bolas}.
 
 \begin{equation}
@@ -415,6 +431,29 @@ Se a árvore já possui um vértice em $B_i$, o objetivo da análise é mostrar 
 
 Como $B_{i+1}$ possui medida positiva, tem-se $p_i > 0$. Se a amostra cair nessa região e o operador de expansão produzir uma conexão compatível com a folga do caminho, o segmento gerado permanece em $Q_{\mathrm{free}}$. Assim, o avanço de $B_i$ para $B_{i+1}$ pode ser visto como um evento de sucesso.
 
+Esse raciocínio pode ser organizado como um esquema de prova, conforme apresentado no Algoritmo~\ref{alg:prova_completude_rrt}. O pseudocódigo não representa a execução do RRT, mas sim a estrutura lógica do argumento utilizado para justificar sua completude probabilística.
+
+\begin{algorithm}[H]
+\caption{Esquema de prova da completude probabilística do RRT}
+\label{alg:prova_completude_rrt}
+\begin{algorithmic}[1]
+\State \textbf{Entrada:} caminho viável $\pi$ com folga positiva $\delta > 0$
+\State \textbf{Saída:} conclusão de que $\mathbb{P}(A_k) \rightarrow 1$
+\State Cobrir $\pi$ por uma sequência finita de bolas $B_0, B_1, \ldots, B_m \subset Q_{\mathrm{free}}$
+\State Definir $B_0$ contendo $q_{\mathrm{start}}$ e $B_m$ intersectando a região objetivo
+\For{$i \gets 0$ até $m-1$}
+    \State Assumir que a árvore $T$ já alcançou a região $B_i$
+    \State Calcular a probabilidade de uma amostra cair em $B_{i+1}$
+    \State $p_i \gets \dfrac{\mu(B_{i+1})}{\mu(Q)}$
+    \State Como $\mu(B_{i+1}) > 0$, concluir que $p_i > 0$
+    \State Concluir que existe probabilidade positiva de avançar de $B_i$ para $B_{i+1}$
+\EndFor
+\State Como há um número finito de regiões, alcançar o objetivo requer uma sequência finita de sucessos
+\State Como cada sucesso possui probabilidade positiva, a probabilidade de falhar indefinidamente tende a zero
+\State Concluir que $\lim_{k \to \infty}\mathbb{P}(A_k)=1$
+\end{algorithmic}
+\end{algorithm}
+
 Como existe apenas um número finito de bolas na cobertura da Equação~\ref{eq:rrt_cobertura_bolas}, alcançar a região objetivo equivale a obter uma sequência finita de sucessos. Em termos de análise probabilística, esse processo pode ser interpretado como uma sequência de tentativas independentes, nas quais cada etapa possui probabilidade positiva de avanço. Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} mostram que, para o RRT geométrico, a probabilidade de falha após $k$ iterações pode ser limitada por uma função exponencial, conforme a Equação~\ref{eq:falha_exponencial_rrt}.
 
 \begin{equation}
@@ -425,6 +464,7 @@ Como existe apenas um número finito de bolas na cobertura da Equação~\ref{eq:
 em que $A_k^c$ representa o evento de falha após $k$ iterações, e $a,b > 0$ são constantes. Como $e^{-bk} \rightarrow 0$ quando $k \rightarrow \infty$, a probabilidade de falha tende a zero. Consequentemente, a probabilidade de sucesso tende a $1$, caracterizando a completude probabilística do RRT sob essas hipóteses.
 
 \paragraph{Ideia da prova para o EST:}
+
 A análise do EST segue uma linha diferente. O algoritmo não expande a árvore a partir do vértice mais próximo de uma amostra global, como ocorre no RRT. Em vez disso, seleciona nós com base em uma estimativa de densidade local, favorecendo regiões menos exploradas. Por isso, sua completude probabilística depende da hipótese de que o espaço livre possui propriedades de expansividade.
 
 Um espaço expansivo pode ser entendido, de forma intuitiva, como um espaço no qual regiões já alcançadas pela árvore possuem visibilidade suficiente para permitir a expansão para novas áreas. Assim, a árvore não fica confinada indefinidamente em uma sub-região do espaço, pois sempre existe uma parcela relevante de $Q_{\mathrm{free}}$ que pode ser alcançada por expansões sucessivas. A análise original do EST relaciona essa propriedade à completude probabilística em espaços expansivos~\cite{hsu1997path,hsu1999path}.
@@ -445,6 +485,29 @@ em que $\rho(q_i)$ representa uma estimativa da densidade ao redor de $q_i$, e $
 
 Essa distribuição reduz a concentração excessiva da exploração em regiões já densamente amostradas e aumenta a chance de expansão a partir de áreas pouco exploradas. Sob as hipóteses de expansividade discutidas por Hsu et al.~\cite{hsu1997path,hsu1999path}, essa estratégia mantém probabilidade positiva de selecionar regiões úteis para expansão e avançar progressivamente pelo espaço livre.
 
+O Algoritmo~\ref{alg:prova_completude_est} organiza esse argumento em forma de pseudocódigo de prova. Diferentemente do RRT, o passo essencial não é a amostra cair em uma bola de medida positiva, mas a existência de regiões visíveis e expansíveis a partir da parte já explorada da árvore.
+
+\begin{algorithm}[H]
+\caption{Esquema de prova da completude probabilística do EST}
+\label{alg:prova_completude_est}
+\begin{algorithmic}[1]
+\State \textbf{Entrada:} espaço livre expansivo e existência de caminho viável
+\State \textbf{Saída:} conclusão de que $\mathbb{P}(A_k) \rightarrow 1$
+\State Considerar uma região já alcançada pela árvore $T$
+\State Pela hipótese de expansividade, identificar uma região livre ainda não explorada e visível a partir de $T$
+\State Identificar ao menos um nó útil $q_i \in T$ capaz de expandir em direção a essa região
+\State Calcular o peso $w(q_i)$ com base na densidade local
+\State Atribuir a $q_i$ probabilidade positiva de seleção pela distribuição da Equação~\ref{eq:probabilidade_est_completude}
+\State Gerar uma perturbação local a partir de $q_i$
+\If{a perturbação gera conexão livre de colisão}
+    \State A árvore avança para uma nova região de $Q_{\mathrm{free}}$
+\EndIf
+\State Repetir o argumento para uma sequência finita de regiões até a região objetivo
+\State Concluir que a probabilidade de falhar indefinidamente tende a zero
+\State Concluir que $\lim_{k \to \infty}\mathbb{P}(A_k)=1$
+\end{algorithmic}
+\end{algorithm}
+
 Portanto, a diferença central entre os dois argumentos está nas hipóteses utilizadas. O RRT geométrico se apoia na existência de um caminho com folga positiva e em regiões de medida não nula ao longo desse caminho. O EST, por sua vez, depende da expansividade estrutural do espaço livre para garantir que a política baseada em densidade não estagne. A Tabela~\ref{tab:comparacao_completude_rrt_est} resume essa comparação.
 
 \begin{table}[H]
@@ -462,17 +525,7 @@ Garantia obtida & Completude probabilística & Completude probabilística sob ex
 \end{tabular}
 \end{table}
 
-Essa distinção é importante para a variante híbrida proposta. A combinação RRT-EST pode ser interpretada como a união de dois mecanismos complementares: a exploração global induzida pelo viés de Voronoi do RRT e o controle de densidade local característico do EST.
-
-Do ponto de vista da completude probabilística, a variante híbrida preserva a garantia se mantiver probabilidade positiva de executar expansões que avancem ao longo de uma sequência finita de regiões livres. Por exemplo, suponha que, em cada iteração, a variante execute uma expansão do tipo RRT com probabilidade $\alpha > 0$ e uma expansão do tipo EST com probabilidade $1-\alpha$. Se o mecanismo RRT possui probabilidade $p_i > 0$ de avançar de $B_i$ para $B_{i+1}$, então a variante híbrida possui probabilidade pelo menos $p_i'$, definida na Equação~\ref{eq:probabilidade_hibrida_completude}, de realizar o mesmo avanço.
-
-\begin{equation}
-    p_i' = \alpha p_i > 0.
-    \label{eq:probabilidade_hibrida_completude}
-\end{equation}
-
-Como o número de regiões necessárias para alcançar o objetivo é finito e cada avanço preserva probabilidade positiva, o argumento de completude probabilística continua válido. A componente EST, por sua vez, atua como um mecanismo adicional de exploração baseado em densidade. Sob as hipóteses de expansividade, sua contribuição também possui respaldo na análise original do EST~\cite{hsu1997path,hsu1999path}, mas a preservação explícita da componente RRT com probabilidade não nula já é suficiente para manter o argumento de completude do híbrido.
-
+A comparação entre os argumentos de completude do RRT e do EST é relevante para este trabalho porque a variante proposta combina mecanismos desses dois planejadores. A análise detalhada do algoritmo híbrido, incluindo sua regra de escolha entre expansão global e expansão por densidade, bem como a discussão sobre a preservação da completude probabilística, é apresentada no Capítulo~\ref{cap:metodologia}.
 \subsection{Otimalidade assintótica no RRT e no EST}
 \label{subsec:otimalidade_rrt_est}
 
