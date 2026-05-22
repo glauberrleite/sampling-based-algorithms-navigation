@@ -1,14 +1,16 @@
 \chapter{Metodologia}\label{cap:metodologia}
-%Fazer diagrama que descreve o fluxo do experimento
+% Fazer diagrama que descreve o fluxo do experimento
 
 Este capítulo descreve a metodologia adotada para implementação e avaliação dos algoritmos de planejamento de caminhos considerados neste trabalho. O objetivo é apresentar como os experimentos foram estruturados, quais ferramentas foram utilizadas, como os dados do ambiente foram extraídos, quais algoritmos foram avaliados e quais métricas foram empregadas para comparar os resultados.
 
-Inicialmente, apresenta-se uma visão geral do fluxo experimental. Em seguida, são descritas as tecnologias utilizadas, a comunicação entre os scripts em Python e o CoppeliaSim, a arquitetura do sistema de navegação, o processo de extração dos obstáculos, a construção do mapa, o algoritmo proposto, os algoritmos avaliados, o robô utilizado, os cenários de teste, as métricas e o protocolo experimental.
+Inicialmente, apresenta-se uma visão geral do fluxo experimental. Em seguida, são descritas as tecnologias utilizadas, a comunicação entre os scripts em Python e o CoppeliaSim, a arquitetura do sistema de navegação, o processo de extração dos obstáculos, a construção do mapa, os algoritmos avaliados, o robô utilizado, os cenários de teste, as métricas e o protocolo experimental.
 
 \section{Visão geral}
 \label{sec:metodologia_visao_geral}
 
-Este trabalho compara algoritmos de planejamento de caminhos baseados em amostragem, com foco em uma variante híbrida denominada \emph{HybridEST}. O objetivo é verificar se essa variante apresenta vantagens em relação ao RRT e ao RRT-Connect em métricas como tempo de planejamento, tempo de execução, taxa de sucesso, erro final e qualidade do caminho.
+Este trabalho compara o desempenho de três algoritmos de planejamento de caminhos baseados em amostragem: RRT, RRT-Connect e EST. O objetivo é analisar como esses planejadores se comportam em diferentes cenários de navegação simulada, considerando ambientes com obstáculos grandes, corredores definidos e obstáculos pequenos dispersos.
+
+A comparação foi conduzida com base em métricas como tempo de planejamento, tempo de execução, taxa de sucesso, erro final e clearance mínima. Dessa forma, busca-se avaliar não apenas a capacidade dos algoritmos de encontrar caminhos viáveis, mas também a qualidade, a segurança e a estabilidade dos caminhos gerados em cada cenário.
 
 Todos os experimentos foram realizados no simulador CoppeliaSim com o robô PioneerP3DX. Para cada combinação de algoritmo e cenário, foram executadas múltiplas rodadas independentes, seguindo uma abordagem Monte Carlo. Ao final, os resultados foram agregados estatisticamente por meio de média e desvio-padrão.
 
@@ -25,10 +27,15 @@ Cada rodada experimental é composta pelas seguintes etapas:
 
 \begin{enumerate}
     \item \textbf{Extração de contexto}: leitura do estado da simulação, incluindo pose do robô, posição do objetivo, obstáculos e limites do ambiente;
+    
     \item \textbf{Construção do mapa}: conversão das informações da cena para uma representação 2D discreta utilizada pelos planejadores;
+    
     \item \textbf{Planejamento}: execução do algoritmo selecionado até encontrar um caminho válido ou atingir o limite de tentativas;
+    
     \item \textbf{Pós-processamento}: aplicação de encurtamento por \textit{shortcut} e redensificação dos waypoints;
+    
     \item \textbf{Execução}: conversão do caminho para coordenadas do mundo e acionamento do controlador de rodas;
+    
     \item \textbf{Registro}: coleta das métricas e reinicialização da simulação para a próxima rodada.
 \end{enumerate}
 
@@ -247,48 +254,31 @@ Cena 3 & $5{,}00~\text{m} \times 5{,}00~\text{m}$ & $100 \times 100$ & $0{,}05~\
 \end{tabular}
 \end{table}
 
+\iffalse
+
 \section{Algoritmo proposto: HybridEST}
 \label{sec:hybridest_proposto}
 
-O RRT e o EST apresentam comportamentos complementares que motivam a criação de uma variante híbrida. O RRT expande a árvore rapidamente em espaços abertos devido ao viés implícito de Voronoi, mas tende a concentrar
-amostras em regiões já bem exploradas à medida que a árvore cresce, o que reduz a eficiência em ambientes com obstáculos dispersos. O EST, por outro lado, evita essa concentração ao selecionar nós de baixa densidade para
-expansão, mas não possui mecanismo de atração global, o que pode torná-lo lento para conectar regiões distantes do espaço livre.
+O RRT e o EST apresentam comportamentos complementares que motivam a criação de uma variante híbrida. O RRT expande a árvore rapidamente em espaços abertos devido ao viés implícito de Voronoi, mas tende a concentrar amostras em regiões já bem exploradas à medida que a árvore cresce, o que reduz a eficiência em ambientes com obstáculos dispersos. O EST, por outro lado, evita essa concentração ao selecionar nós de baixa densidade para expansão, mas não possui mecanismo de atração global, o que pode torná-lo lento para conectar regiões distantes do espaço livre.
 
-O \emph{HybridEST} é proposto para combinar esses dois comportamentos por meio de um parâmetro $\alpha \in (0, 1)$ que controla a proporção entre amostragem global (componente RRT) e expansão orientada por densidade
-(componente EST). O objetivo é obter um algoritmo que explore o espaço de forma eficiente tanto em regiões abertas quanto em ambientes com múltiplos obstáculos dispersos.
+O \emph{HybridEST} é proposto para combinar esses dois comportamentos por meio de um parâmetro $\alpha \in (0, 1)$ que controla a proporção entre amostragem global, componente RRT, e expansão orientada por densidade, componente EST. O objetivo é obter um algoritmo que explore o espaço de forma eficiente tanto em regiões abertas quanto em ambientes com múltiplos obstáculos dispersos.
 
-% --- Subseção de cenários e motivação dos testes ---
 \subsection{Cenários de Aplicação e Justificativa dos Experimentos}
 \label{subsec:cenarios_hybridest}
 
 A hipótese central deste trabalho é que o HybridEST pode apresentar vantagens sobre o RRT puro em ambientes com espaço livre fragmentado, como aqueles com muitos obstáculos pequenos dispersos. Nesses casos, a componente EST tende a distribuir as amostras de forma mais uniforme pelo espaço livre, evitando que a árvore se concentre em regiões já cobertas e deixe outras inexploradas.
 
-Em ambientes com poucos obstáculos grandes e corredores definidos, como os de cena1 e cena2, espera-se que o comportamento do HybridEST seja próximo ao do RRT, já que o espaço livre é contínuo e não exige uma
-exploração especialmente uniforme. Por isso, a cena3 foi criada com obstáculos dispersos justamente para avaliar se a vantagem teórica do componente EST se manifesta em condições práticas de simulação.
+Em ambientes com poucos obstáculos grandes e corredores definidos, como os de cena1 e cena2, espera-se que o comportamento do HybridEST seja próximo ao do RRT, já que o espaço livre é contínuo e não exige uma exploração especialmente uniforme. Por isso, a cena3 foi criada com obstáculos dispersos justamente para avaliar se a vantagem teórica do componente EST se manifesta em condições práticas de simulação.
 
-Foram testadas duas configurações do HybridEST para avaliar o efeito
-do parâmetro $\alpha$:
+Foram testadas duas configurações do HybridEST para avaliar o efeito do parâmetro $\alpha$:
 
 \begin{itemize}
-    \item $\alpha = 0{,}70$: maior proporção de amostragem global. O
-    algoritmo se comporta de forma próxima ao RRT, com exploração rápida
-    do espaço. É a configuração esperada para ambientes mais abertos.
+    \item $\alpha = 0{,}70$: maior proporção de amostragem global. O algoritmo se comporta de forma próxima ao RRT, com exploração rápida do espaço. É a configuração esperada para ambientes mais abertos.
 
-    \item $\alpha = 0{,}35$: maior proporção de expansão por densidade.
-    O algoritmo depende mais do componente EST para guiar a exploração.
-    É a configuração esperada para ambientes com espaço livre mais
-    fragmentado.
+    \item $\alpha = 0{,}35$: maior proporção de expansão por densidade. O algoritmo depende mais do componente EST para guiar a exploração. É a configuração esperada para ambientes com espaço livre mais fragmentado.
 \end{itemize}
 
-Comparar essas duas configurações entre si e com o RRT e o RRT-Connect
-permite identificar em que condições o parâmetro $\alpha$ influencia
-o desempenho e se o custo computacional adicional do HybridEST é
-justificado pelos resultados obtidos.
-
-% --- Conteúdo que você já tem ---
-O algoritmo HybridEST é a variante proposta neste trabalho para combinar
-características de exploração global do RRT com o controle de densidade
-local do EST...
+Comparar essas duas configurações entre si e com o RRT e o RRT-Connect permite identificar em que condições o parâmetro $\alpha$ influencia o desempenho e se o custo computacional adicional do HybridEST é justificado pelos resultados obtidos.
 
 O algoritmo \emph{HybridEST} é a variante proposta neste trabalho para combinar características de exploração global do RRT com o controle de densidade local do EST. A motivação para essa combinação está no fato de que o RRT tende a explorar rapidamente regiões amplas do espaço de configuração, devido ao seu viés implícito de Voronoi, enquanto o EST favorece a expansão a partir de regiões pouco densamente amostradas.
 
@@ -397,45 +387,42 @@ Embora o HybridEST preserve a completude probabilística sob as hipóteses discu
 
 Portanto, neste trabalho, o HybridEST é avaliado como uma estratégia de melhoria da exploração e da cobertura do espaço livre, e não como um planejador assintoticamente ótimo. Para obter essa propriedade, seria necessário incorporar mecanismos adicionais semelhantes aos utilizados no RRT*, como \textit{rewiring} ou outro procedimento de otimização incremental.
 
+\fi
+
 \section{Algoritmos avaliados}
 \label{sec:algoritmos_avaliados}
 
-Foram avaliadas quatro configurações de algoritmos. O RRT e o RRT-Connect, apresentados no Capítulo~\ref{cap:fundamentacao}, servem como referências de desempenho. As duas configurações do HybridEST correspondem à variante proposta neste trabalho, avaliada com diferentes valores do parâmetro $\alpha$.
+Foram avaliados três algoritmos de planejamento de caminhos baseados em amostragem: RRT, RRT-Connect e EST. Esses algoritmos foram escolhidos por representarem estratégias distintas de exploração do espaço de configuração. O RRT utiliza amostragem global e expansão a partir do vizinho mais próximo; o RRT-Connect estende essa ideia por meio de uma busca bidirecional; e o EST utiliza uma estratégia de expansão baseada na densidade local dos nós da árvore.
 
 As configurações avaliadas foram:
 
 \begin{itemize}
-    \item \textbf{RRT}: planejador incremental baseado em amostragem global e expansão a partir do vizinho mais próximo;
+    \item \textbf{RRT}: planejador incremental baseado em amostragem global e expansão a partir do vizinho mais próximo da árvore;
 
-    \item \textbf{RRT-Connect}: variante bidirecional do RRT, utilizada como referência por sua eficiência prática na busca por caminhos viáveis;
+    \item \textbf{RRT-Connect}: variante bidirecional do RRT, na qual duas árvores são expandidas, uma a partir da configuração inicial e outra a partir da configuração objetivo, buscando acelerar a conexão entre as regiões do espaço livre;
 
-    \item \textbf{HybridEST exploratório} ($\alpha = 0{,}70$): configuração com maior proporção de expansão global, aproximando-se mais do comportamento do RRT;
-
-    \item \textbf{HybridEST conservador} ($\alpha = 0{,}35$): configuração com maior proporção de expansão baseada em densidade, aproximando-se mais do comportamento do EST.
+    \item \textbf{EST}: planejador baseado em árvore que seleciona nós para expansão de acordo com uma estimativa de densidade local, favorecendo regiões menos exploradas do espaço de configuração.
 \end{itemize}
 
-Os parâmetros de cada configuração estão na Tabela~\ref{tab:parametros_algoritmos}. Para permitir uma comparação mais controlada, os parâmetros principais foram equalizados entre os algoritmos, mantendo o mesmo limite de iterações, número de tentativas, passo máximo e espaçamento de waypoints.
+Os parâmetros de cada configuração estão apresentados na Tabela~\ref{tab:parametros_algoritmos}. Para permitir uma comparação controlada, os parâmetros principais foram mantidos iguais sempre que aplicáveis, incluindo o limite de iterações, o número de tentativas de planejamento, o passo máximo, o raio do robô e o espaçamento dos waypoints. Os parâmetros específicos do EST foram definidos separadamente por estarem associados à sua estratégia de seleção por densidade.
 
 \begin{table}[H]
 \centering
 \caption{Parâmetros dos algoritmos utilizados nos experimentos.}
 \label{tab:parametros_algoritmos}
-\begin{tabular}{lcccc}
+\begin{tabular}{lccc}
 \toprule
-Parâmetro & RRT & RRT-Connect
-    & \shortstack{HybridEST\\($\alpha{=}0{,}70$)}
-    & \shortstack{HybridEST\\($\alpha{=}0{,}35$)} \\
+Parâmetro & RRT & RRT-Connect & EST \\
 \midrule
-Passo máximo (pixels)          & 1,2      & 1,2      & 1,2      & 1,2      \\
-Taxa de amostragem do objetivo & 15\%     & 15\%     & 15\%     & 15\%     \\
-Iterações máximas              & 12\,000  & 12\,000  & 12\,000  & 12\,000  \\
-Tentativas de planejamento     & 25       & 25       & 25       & 25       \\
-Taxa global $\alpha$           & --       & --       & 0,70     & 0,35     \\
-Raio de densidade (pixels)     & --       & --       & 4        & 4        \\
-Raio de amostragem local       & --       & --       & 3        & 3        \\
-Candidatos de densidade        & --       & --       & 30       & 40       \\
-Raio do robô (m)               & 0,18     & 0,18     & 0,18     & 0,18     \\
-Espaçamento de waypoints (m)   & 0,06     & 0,06     & 0,06     & 0,06     \\
+Passo máximo (pixels)          & 1,2      & 1,2      & 1,2      \\
+Taxa de amostragem do objetivo & 15\%     & 15\%     & --       \\
+Iterações máximas              & 12\,000  & 12\,000  & 12\,000  \\
+Tentativas de planejamento     & 25       & 25       & 25       \\
+Raio de densidade (pixels)     & --       & --       & 4        \\
+Raio de amostragem local       & --       & --       & 3        \\
+Candidatos de densidade        & --       & --       & 40       \\
+Raio do robô (m)               & 0,18     & 0,18     & 0,18     \\
+Espaçamento de waypoints (m)   & 0,06     & 0,06     & 0,06     \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -473,7 +460,7 @@ Foram usados três cenários no CoppeliaSim com complexidades diferentes:
 
     \item \textbf{Cena 2}: ambiente com obstáculos maiores e menos passagens estreitas, resultando em mais espaço livre. Serve como referência de menor complexidade, com caminhos de aproximadamente 129 waypoints;
 
-    \item \textbf{Cena 3}: versão da Cena 1 com 16 obstáculos cúbicos pequenos, de dimensões $0{,}25 \times 0{,}25 \times 0{,}35~\text{m}$, dispersos pelo espaço livre. Esse cenário foi criado para testar os algoritmos em um ambiente com muitos obstáculos pequenos, condição teoricamente favorável ao componente EST do HybridEST.
+    \item \textbf{Cena 3}: versão da Cena 1 com 16 obstáculos cúbicos pequenos, de dimensões $0{,}25 \times 0{,}25 \times 0{,}35~\text{m}$, dispersos pelo espaço livre. Esse cenário foi criado para avaliar o comportamento dos algoritmos em um ambiente com maior fragmentação do espaço livre, condição em que estratégias baseadas em densidade, como o EST, podem apresentar comportamento distinto em relação ao RRT e ao RRT-Connect.
 \end{itemize}
 
 Em todos os cenários, o ponto de início é a posição inicial do robô na cena e o objetivo é definido pelo objeto \texttt{GoalConfiguration} posicionado no CoppeliaSim.
@@ -483,24 +470,31 @@ A Figura~\ref{fig:cenarios_teste} apresenta uma visão superior dos três cenár
 \begin{figure}[H]
     \centering
 
-    \begin{subfigure}{0.32\textwidth}
+    \begin{subfigure}
         \centering
         \includegraphics[width=\textwidth]{tcc/Cap03/img/cena1.png}
         \caption{Cena 1}
         \label{fig:cena1}
     \end{subfigure}
     \hfill
-    \begin{subfigure}{0.32\textwidth}
+    \begin{subfigure}
         \centering
         \includegraphics[width=\textwidth]{tcc/Cap03/img/cena2.png}
         \caption{Cena 2}
         \label{fig:cena2}
     \end{subfigure}
     \hfill
-    \begin{subfigure}{0.32\textwidth}
+    \begin{subfigure}
         \centering
         \includegraphics[width=\textwidth]{tcc/Cap03/img/cena3.png}
         \caption{Cena 3}
+        \label{fig:cena3}
+    \end{subfigure}
+
+    \begin{subfigure}
+        \centering
+        \includegraphics[width=\textwidth]{tcc/Cap03/img/cena4.png}
+        \caption{Cena 4}
         \label{fig:cena3}
     \end{subfigure}
 

@@ -1,34 +1,34 @@
 \chapter{Fundamentação Teórica}\label{cap:fundamentacao}
 
-Este capítulo apresenta os fundamentos teóricos necessários para a compreensão do problema de planejamento de caminhos em robótica, com ênfase em métodos baseados em amostragem. Inicialmente, são introduzidos os conceitos de planejamento de caminho, espaço de configuração e espaço livre, que permitem modelar o problema como uma busca por conectividade em um espaço contínuo.
+Este capítulo apresenta os fundamentos teóricos para compreender o problema de planejamento de caminhos em robótica, com ênfase em métodos baseados em amostragem. São introduzidos os conceitos de espaço de configuração e espaço livre, que modelam o problema como uma busca por conectividade em um espaço contínuo.
 
-Em seguida, o problema é formulado matematicamente, distinguindo-se o planejamento geométrico de caminhos do planejamento de trajetórias e do planejamento cinodinâmico. A partir dessa formulação, são apresentadas diferentes classes de algoritmos de planejamento, com destaque para métodos probabilísticos baseados em árvores, como RRT, RRT-Connect, RRT* e EST.
+O problema é então formulado matematicamente, distinguindo planejamento geométrico de caminhos, planejamento de trajetórias e planejamento cinodinâmico. A partir dessa formulação, são apresentadas diferentes classes de algoritmos, com destaque para métodos probabilísticos baseados em árvores: RRT, RRT-Connect, RRT* e EST.
 
-Por fim, são discutidas propriedades formais desses planejadores, como completude probabilística e otimalidade assintótica, destacando as diferenças entre RRT e EST e sua relação com a variante híbrida proposta neste trabalho.
+Por fim, são discutidas propriedades formais desses planejadores, como completude probabilística e otimalidade assintótica, e suas diferenças em relação à variante híbrida proposta neste trabalho.
 
 \section{Planejamento de caminho em robótica}\label{sec:planejamento_caminho}
 
-O planejamento de caminho constitui um dos problemas centrais da robótica móvel e da manipulação robótica, consistindo na determinação de uma sequência contínua de configurações que conduza o robô de um estado inicial a um estado objetivo sem violar restrições impostas pelo ambiente. Conforme discutido por \citet{choset2005principles}, o problema pode ser interpretado como uma busca geométrica em um espaço de estados contínuo, no qual obstáculos induzem regiões proibidas e o movimento deve respeitar restrições cinemáticas e, eventualmente, dinâmicas.
+O planejamento de caminho é um dos problemas centrais da robótica móvel e da manipulação robótica que consiste em determinar uma sequência contínua de configurações que leve o robô de um estado inicial a um objetivo sem violar restrições do ambiente. Conforme discutido por \citet{choset2005principles}, o problema pode ser interpretado como uma busca geométrica em um espaço de estados contínuo, no qual obstáculos induzem regiões proibidas e o movimento deve respeitar restrições cinemáticas e, eventualmente, dinâmicas.
 
-Diferentemente do controle de movimento, que trata da execução física das ações, o planejamento opera em um nível deliberativo, abstraindo a dinâmica e focando na viabilidade geométrica do trajeto. Essa distinção permite modelar o problema de forma matemática, transformando a navegação física em uma questão de conectividade topológica em um espaço adequado de representação.
+Diferente do controle de movimento, que trata da execução física das ações, o planejamento opera em nível deliberativo: abstrai a dinâmica e foca na viabilidade geométrica do trajeto. Isso permite modelar o problema matematicamente, transformando a navegação em uma questão de conectividade topológica.
 
-A formulação clássica do planejamento assume conhecimento prévio do ambiente e considera o problema sob a perspectiva determinística, no qual o objetivo é encontrar um caminho contínuo pertencente ao espaço livre que conecte duas configurações válidas.
+A formulação clássica assume conhecimento prévio do ambiente e abordagem determinística, onde o objetivo é encontrar um caminho contínuo no espaço livre que conecte duas configurações válidas.
 
 \section{Espaço de configuração e espaço livre}
 \label{sec:espaco_configuracao}
 
-Para formalizar o problema de planejamento de caminho, introduz-se o conceito de \textbf{espaço de configuração}, usualmente denotado por $Q$. Conforme \citet{choset2005principles}, o espaço de configuração representa o conjunto de todas as configurações possíveis do robô, sendo cada ponto desse espaço uma descrição completa do estado geométrico do sistema. A principal utilidade dessa abstração é reduzir um robô de geometria arbitrária a um ponto em $Q$, simplificando a representação do problema de planejamento.
+Para formalizar o planejamento de caminho, introduz-se o conceito de \textbf{espaço de configuração}, denotado por $Q$. Conforme \citet{choset2005principles}, $Q$ representa o conjunto de todas as configurações possíveis do robô, onde cada ponto descreve completamente o estado geométrico do sistema. Com isso, um robô de geometria arbitrária é reduzido a um ponto em $Q$, simplificando a representação do problema.
 
-Uma \textbf{configuração} $q$ de um robô é um vetor de parâmetros que especifica univocamente a posição e orientação de cada ponto do robô no espaço de trabalho. A dimensão de $Q$ corresponde ao número de graus de liberdade (\textit{degrees of freedom}) do sistema.
+Uma \textbf{configuração} $q$ é um vetor de parâmetros que especifica univocamente a posição e orientação de cada ponto do robô no espaço de trabalho. A dimensão de $Q$ corresponde ao número de graus de liberdade do sistema.
 
-Para um robô rígido planar, por exemplo, o espaço de configuração é definido como
+Para um robô rígido planar, o espaço de configuração é:
 
 \begin{equation}
     Q = \mathbb{R}^2 \times S^1,
     \label{eq:cspace_planar}
 \end{equation}
 
-onde $\mathbb{R}^2$ representa a posição no plano e $S^1$ a orientação angular. Para um manipulador com $n$ juntas de revolução, tem-se $Q = (S^1)^n$, o toro $n$-dimensional~\cite{choset2005principles}.
+onde $\mathbb{R}^2$ representa a posição no plano e $S^1$ a orientação angular. Para um manipulador com $n$ juntas de revolução, tem-se $Q = (S^1)^n$~\cite{choset2005principles}.
 
 Considere um \textbf{espaço de trabalho} $W \subset \mathbb{R}^d$, com $d \in \{2, 3\}$, contendo obstáculos $W_{O_i}$. O conjunto livre no espaço de trabalho é
 
@@ -37,28 +37,28 @@ Considere um \textbf{espaço de trabalho} $W \subset \mathbb{R}^d$, com $d \in \
     \label{eq:wfree}
 \end{equation}
 
-Entretanto, o planejamento não é realizado diretamente no espaço de trabalho, mas sim no espaço de configuração. Seja $R(q) \subset W$ o conjunto de pontos ocupados pelo robô quando este se encontra na configuração $q \in Q$. O conjunto de configurações em colisão com o obstáculo $W_{O_i}$ é
+O planejamento não ocorre diretamente no espaço de trabalho, mas no espaço de configuração. Seja $R(q) \subset W$ o conjunto de pontos ocupados pelo robô na configuração $q \in Q$. O conjunto de configurações em colisão com o obstáculo $W_{O_i}$ é
 
 \begin{equation}
     Q_{O_i} = \bigl\{ q \in Q \mid R(q) \cap W_{O_i} \neq \emptyset \bigr\},
     \label{eq:qobs}
 \end{equation}
 
-e o \textbf{espaço livre de configurações} é definido como
+e o \textbf{espaço livre de configurações} é
 
 \begin{equation}
     Q_{\mathrm{free}} = Q \setminus \bigcup_i Q_{O_i}.
     \label{eq:qfree}
 \end{equation}
 
-Obstáculos simples no espaço de trabalho podem induzir regiões proibidas de geometria complexa em $Q$, o que torna sua construção explícita computacionalmente proibitiva para robôs com muitos graus de liberdade~\cite{choset2005principles}. Os algoritmos baseados em amostragem contornam essa dificuldade consultando $Q_{O_i}$ apenas pontualmente, por meio de verificadores de colisão, sem construir a representação completa de $Q_{\mathrm{free}}$~\cite{choset2005principles, lavalle2006planning}.
+Obstáculos simples no espaço de trabalho podem induzir regiões proibidas de geometria complexa em $Q$, tornando inviável construí-las explicitamente para robôs com muitos graus de liberdade~\cite{choset2005principles}. Os algoritmos baseados em amostragem contornam isso consultando $Q_{O_i}$ apenas pontualmente, via verificadores de colisão, sem construir $Q_{\mathrm{free}}$ por completo~\cite{choset2005principles, lavalle2006planning}.
 
-Dessa forma, o planejamento de caminho pode ser reinterpretado como um problema de busca no espaço de configuração livre. Em vez de planejar diretamente no espaço de trabalho, busca-se uma sequência contínua de configurações válidas em $Q_{\mathrm{free}}$, capaz de conectar uma configuração inicial a uma configuração objetivo. Essa formulação é apresentada de maneira mais detalhada na seção seguinte.
+Assim, o planejamento de caminho passa a ser uma busca no espaço de configuração livre: encontrar uma sequência contínua de configurações válidas em $Q_{\mathrm{free}}$ que conecte configuração inicial e objetivo.
 
 \section{Formulação matemática do planejamento de caminhos}
 \label{sec:formulacao}
 
-A partir da definição do espaço de configuração $Q$ e do espaço livre $Q_{\mathrm{free}} \subset Q$, o problema de planejamento pode ser formulado como um problema de conectividade em um espaço topológico contínuo~\cite{choset2005principles}. Em sua forma mais geral, o objetivo consiste em determinar a existência de um caminho contínuo que conecte duas configurações válidas sem interceptar regiões proibidas.
+A partir de $Q$ e $Q_{\mathrm{free}} \subset Q$, o problema de planejamento pode ser formulado como um problema de conectividade em um espaço topológico contínuo~\cite{choset2005principles}: determinar um caminho contínuo que conecte duas configurações válidas sem interceptar regiões proibidas.
 
 Sejam $q_{\mathrm{start}}, q_{\mathrm{goal}} \in Q_{\mathrm{free}}$ duas configurações admissíveis. Um \textbf{caminho} é uma função contínua
 
@@ -76,17 +76,15 @@ tal que
     \label{eq:path_conditions}
 \end{equation}
 
-A solução do problema de planejamento de caminho consiste, portanto, na determinação de uma função contínua $c \in C^0$ que satisfaça a \autoref{eq:path_conditions}, ou na conclusão de que tal função não existe.
+A solução consiste em encontrar $c \in C^0$ satisfazendo a \autoref{eq:path_conditions}, ou concluir que não existe.
 
 \subsection*{Problema de viabilidade}
 
-A primeira formulação, denominada \textbf{problema de viabilidade}, busca apenas a existência de um caminho livre de colisão.
-
-Dados $q_{\mathrm{start}}, q_{\mathrm{goal}} \in Q_{\mathrm{free}}$, deve-se determinar uma função contínua $c : [0,1] \rightarrow Q$ satisfazendo \autoref{eq:path_conditions}, ou determinar que nenhuma solução existe~\citep{choset2005principles}.
+A formulação mais básica, o \textbf{problema de viabilidade}, busca apenas a existência de um caminho livre de colisão: dados $q_{\mathrm{start}}, q_{\mathrm{goal}} \in Q_{\mathrm{free}}$, determinar $c : [0,1] \rightarrow Q$ satisfazendo \autoref{eq:path_conditions}, ou concluir que nenhuma solução existe~\citep{choset2005principles}.
 
 \subsection*{Problema de planejamento ótimo}
 
-Em diversas aplicações, não é suficiente encontrar qualquer caminho viável; deseja-se otimizar algum critério de desempenho. Seja
+Quando não basta encontrar qualquer caminho viável, é necessário otimizar algum critério. Seja
 
 \begin{equation}
     \Sigma_{\mathrm{free}} =
@@ -96,20 +94,18 @@ Em diversas aplicações, não é suficiente encontrar qualquer caminho viável;
         c(0) = q_{\mathrm{start}},\;
         c(1) = q_{\mathrm{goal}},\;
         c(s) \in Q_{\mathrm{free}},\; \forall s \in [0,1]
-    \right\}.
+    \right\}
     \label{eq:admissible_paths}
 \end{equation}
 
-o conjunto de caminhos admissíveis. Seja ainda
+o conjunto de caminhos admissíveis, e
 
 \begin{equation}
     J : \Sigma_{\mathrm{free}} \rightarrow \mathbb{R}_{\geq 0}
     \label{eq:functional_cost}
 \end{equation}
 
-uma função de custo associada aos caminhos admissíveis.
-
-O problema de planejamento ótimo consiste em determinar
+uma função de custo. O problema ótimo consiste em determinar
 
 \begin{equation}
     c^* = \arg\min_{c \in \Sigma_{\mathrm{free}}} J(c),
@@ -118,7 +114,7 @@ O problema de planejamento ótimo consiste em determinar
 
 conforme formalizado em \cite{Karaman2011SamplingbasedAF}.
 
-Como os planejadores baseados em amostragem constroem soluções na forma de uma sequência finita de configurações, neste trabalho o custo de um caminho é considerado em sua forma discreta. Seja um caminho representado pela sequência de configurações $q_0, q_1, \ldots, q_m$, em que $q_0 = q_{\mathrm{start}}$ e $q_m = q_{\mathrm{goal}}$. O custo associado ao caminho pode ser definido como
+Como os planejadores baseados em amostragem produzem sequências finitas de configurações, o custo é tratado em forma discreta. Dado o caminho $q_0, q_1, \ldots, q_m$, com $q_0 = q_{\mathrm{start}}$ e $q_m = q_{\mathrm{goal}}$:
 
 \begin{equation}
     J(c) =
@@ -127,7 +123,7 @@ Como os planejadores baseados em amostragem constroem soluções na forma de uma
     \label{eq:discrete_path_cost}
 \end{equation}
 
-em que $d(q_i, q_{i+1})$ representa a distância entre duas configurações consecutivas no espaço de configuração. Quando o espaço de configuração considerado é euclidiano, essa distância pode ser calculada pela norma
+onde $d(q_i, q_{i+1})$ é a distância entre configurações consecutivas. Em espaços euclidianos:
 
 \begin{equation}
     d(q_i, q_{i+1}) =
@@ -135,60 +131,56 @@ em que $d(q_i, q_{i+1})$ representa a distância entre duas configurações cons
     \label{eq:euclidean_distance}
 \end{equation}
 
-Essa formulação é adequada ao contexto deste trabalho, pois algoritmos como RRT, RRT* e EST produzem caminhos compostos por vértices e arestas discretas no espaço de configuração. Outros critérios de custo incluem tempo de execução, consumo de energia, suavidade da trajetória ou maximização da distância a obstáculos~\cite{choset2005principles}.
+Outros critérios possíveis incluem tempo, consumo de energia, suavidade da trajetória ou distância a obstáculos~\cite{choset2005principles}.
 
 \subsection*{Planejamento de trajetória e planejamento cinodinâmico}
 
-Quando a solução é parametrizada explicitamente no tempo, deixa-se de tratar apenas de um caminho geométrico e passa-se a considerar uma trajetória. Nesse caso, a configuração do robô passa a ser descrita como uma função do tempo,
+Quando a solução é parametrizada no tempo, passa-se a tratar de uma trajetória. A configuração torna-se uma função temporal:
 
 \begin{equation}
     q : [0,T] \rightarrow Q,
 \end{equation}
 
-em que $q(t)$ representa a configuração do sistema no instante $t$. A trajetória, portanto, não descreve apenas a sequência espacial de configurações, mas também como essas configurações são percorridas ao longo do tempo.
-
-Em formulações mais gerais, especialmente quando velocidades, acelerações e entradas de controle precisam ser consideradas, o problema passa a ser modelado no espaço de estados. Um estado pode ser definido, por exemplo, como
+descrevendo não apenas a sequência de configurações, mas como elas são percorridas ao longo do tempo. Em formulações mais gerais, o estado do sistema inclui velocidades:
 
 \begin{equation}
     x(t) = (q(t), \dot{q}(t)),
 \end{equation}
 
-onde $q(t)$ representa a configuração do robô e $\dot{q}(t)$ representa sua velocidade. A evolução do sistema pode então ser descrita por uma equação dinâmica da forma
+com evolução descrita por
 
 \begin{equation}
     \dot{x}(t) = f(x(t), u(t)), \qquad u(t) \in \mathcal{U},
     \label{eq:system_dynamics}
 \end{equation}
 
-em que $u(t)$ corresponde à entrada de controle aplicada ao sistema e $\mathcal{U}$ representa o conjunto de controles admissíveis.
+onde $u(t)$ é a entrada de controle e $\mathcal{U}$ o conjunto de controles admissíveis. Quando o planejamento deve satisfazer esse modelo, respeitando restrições de velocidade, aceleração e atuação, o problema é denominado planejamento cinodinâmico~\cite{LaValle1999RandomizedKP}.
 
-Quando o planejamento precisa encontrar uma trajetória que satisfaça esse modelo dinâmico, respeitando restrições de velocidade, aceleração e atuação, o problema é denominado planejamento cinodinâmico (\textit{kinodynamic planning})~\cite{LaValle1999RandomizedKP}.
-
-Neste trabalho, entretanto, considera-se apenas o planejamento geométrico de caminhos. Assim, a evolução temporal do movimento e as restrições dinâmicas do robô são abstraídas, reduzindo o problema à busca por conectividade no espaço de configuração livre $Q_{\mathrm{free}}$.
+Neste trabalho, considera-se apenas o planejamento geométrico de caminhos. A evolução temporal e as restrições dinâmicas são abstraídas, reduzindo o problema à busca por conectividade em $Q_{\mathrm{free}}$.
 
 \section{Algoritmos de planejamento de caminhos}
 \label{sec:algoritmos}
 
-Uma vez formalizado o problema como a busca por uma curva contínua em $Q_{\mathrm{free}}$, diferentes estratégias algorítmicas podem ser empregadas para sua resolução. Conforme apresentado por \citet{choset2005principles}, os métodos de planejamento podem ser classificados em três categorias principais: (i) busca em grafos discretizados, (ii) decomposição do espaço livre e (iii) métodos probabilísticos baseados em amostragem.
+Uma vez formulado o problema como busca por curva contínua em $Q_{\mathrm{free}}$, diferentes estratégias podem ser empregadas para resolvê-lo. Conforme \citet{choset2005principles}, os métodos se dividem em: (i) busca em grafos discretizados, (ii) decomposição do espaço livre e (iii) métodos probabilísticos baseados em amostragem.
 
-Em espaços de baixa dimensão, algumas dessas abordagens podem ser aplicadas por meio da construção explícita de grafos, células ou estruturas geométricas. No entanto, conforme a dimensão do espaço de configuração aumenta, a representação explícita de $Q_{\mathrm{free}}$ torna-se cada vez mais custosa. Esse cenário motiva o uso de métodos baseados em amostragem, que exploram o espaço por meio de amostras e verificações locais de colisão, sem exigir a construção completa do espaço livre.
+Em espaços de baixa dimensão, é viável construir grafos ou estruturas geométricas explícitas. À medida que a dimensão cresce, representar $Q_{\mathrm{free}}$ explicitamente torna-se proibitivo, motivando o uso de métodos baseados em amostragem.
 
 \subsection{Métodos clássicos}
 
 \paragraph{Busca em grafos discretizados:}
-Quando o espaço de configuração é discretizado, o problema pode ser reduzido a um problema de busca em grafos. Cada vértice representa uma configuração e as arestas representam transições válidas entre configurações adjacentes. Algoritmos como Dijkstra e A* podem então ser empregados. Embora garantam completude na discretização adotada, tais métodos sofrem com crescimento exponencial do número de estados à medida que a dimensão do espaço aumenta.
+Com o espaço discretizado, o problema vira uma busca em grafos. Algoritmos como Dijkstra e A* garantem completude, mas o número de estados cresce exponencialmente com a dimensão.
 
 \paragraph{Decomposição celular:}
-A decomposição celular consiste na partição explícita de $Q_{\mathrm{free}}$ em um conjunto finito de células disjuntas cuja união corresponde ao espaço livre. Constrói-se então um grafo de adjacência entre células conectadas. Se existir uma sequência de células conectando as regiões que contêm $q_{\mathrm{start}}$ e $q_{\mathrm{goal}}$, um caminho pode ser construído~\cite{choset2005principles}.
+$Q_{\mathrm{free}}$ é particionado em células disjuntas e um grafo de adjacência é construído entre elas. Se existir uma sequência de células conectando $q_{\mathrm{start}}$ a $q_{\mathrm{goal}}$, um caminho pode ser obtido~\cite{choset2005principles}.
 
 \paragraph{Roadmaps determinísticos:}
-Entre as estruturas clássicas destacam-se o grafo de visibilidade e o diagrama de Voronoi generalizado. O diagrama de Voronoi possui a propriedade de maximizar o afastamento em relação aos obstáculos, favorecendo caminhos com maior folga de segurança. Entretanto, sua construção exata é computacionalmente onerosa quando o número de graus de liberdade cresce. Essas limitações motivaram o desenvolvimento de métodos probabilísticos baseados em amostragem, capazes de explorar espaços de configuração complexos sem exigir a construção explícita de toda a região livre.
+O grafo de visibilidade e o diagrama de Voronoi generalizado são exemplos clássicos. O diagrama de Voronoi maximiza o afastamento em relação a obstáculos, mas sua construção exata é custosa com muitos graus de liberdade, o que impulsionou o desenvolvimento dos métodos probabilísticos.
 
 \subsection{Métodos probabilísticos baseados em amostragem}
 
-Os métodos baseados em amostragem evitam a construção explícita de $Q_{\mathrm{free}}$. Em vez disso, utilizam amostras aleatórias em $Q$ e verificações locais de colisão para construir incrementalmente uma estrutura de conectividade.
+Esses métodos não constroem $Q_{\mathrm{free}}$ explicitamente. Em vez disso, geram amostras aleatórias em $Q$ e usam verificações locais de colisão para construir incrementalmente uma estrutura de conectividade.
 
-Conforme discutido em \citet{choset2005principles}, esses métodos são tipicamente \textit{probabilisticamente completos}, isto é, se existe um caminho com folga positiva em relação aos obstáculos, a probabilidade de encontrá-lo converge para 1 à medida que o número de amostras tende ao infinito.
+Conforme \citet{choset2005principles}, são tipicamente \textit{probabilisticamente completos}: se existe um caminho com folga positiva em relação aos obstáculos, a probabilidade de encontrá-lo converge para 1 com o aumento do número de amostras.
 
 Dois paradigmas principais são identificados:
 
@@ -202,11 +194,11 @@ Neste trabalho, o foco recai sobre os planejadores baseados em árvores.
 \subsection{Amostragem e viés de exploração}
 \label{subsec:amostragem_vies}
 
-Nos planejadores baseados em amostragem, a forma como novas configurações são geradas influencia diretamente o comportamento da busca. Em geral, uma amostra $q_{\mathrm{rand}}$ é escolhida no espaço de configuração, e o algoritmo utiliza essa amostra para decidir onde expandir sua estrutura de planejamento. Assim, a distribuição das amostras afeta tanto a capacidade de exploração global quanto a eficiência do planejador em regiões de difícil acesso.
+Nos planejadores baseados em amostragem, como novas configurações são geradas influencia diretamente a busca. Em geral, uma amostra $q_{\mathrm{rand}}$ é gerada no espaço de configuração e o algoritmo decide onde expandir sua estrutura a partir dela. A distribuição das amostras afeta tanto a exploração global quanto a eficiência em regiões de difícil acesso.
 
-A estratégia mais simples é a amostragem uniforme, na qual todos os pontos do espaço possuem a mesma probabilidade de serem selecionados. Essa abordagem favorece a exploração global do espaço, pois não privilegia previamente nenhuma região específica. No entanto, em ambientes com passagens estreitas ou obstáculos próximos entre si, a probabilidade de gerar amostras diretamente nessas regiões pode ser baixa, dificultando a conexão entre diferentes componentes do espaço livre.
+A estratégia mais direta é a amostragem uniforme, na qual todos os pontos têm igual probabilidade de seleção. Favorece a exploração global, mas em ambientes com passagens estreitas, a chance de amostrar exatamente nessas regiões pode ser baixa.
 
-Também é comum utilizar estratégias de amostragem enviesada. Um exemplo é o viés em direção ao objetivo, no qual a configuração objetivo $q_{\mathrm{goal}}$ é escolhida com uma certa probabilidade $p_{\mathrm{goal}}$. Nesse caso, a amostragem pode ser descrita, de forma simplificada, conforme apresentado na Equação~\ref{eq:goal_bias}.
+Uma alternativa comum é o viés em direção ao objetivo, onde $q_{\mathrm{goal}}$ é escolhido com probabilidade $p_{\mathrm{goal}}$:
 
 \begin{equation}
 q_{\mathrm{rand}} =
@@ -217,9 +209,9 @@ q_{\mathrm{goal}}, & \text{com probabilidade } p_{\mathrm{goal}}, \\
 \label{eq:goal_bias}
 \end{equation}
 
-Essa estratégia pode acelerar a convergência em ambientes simples, pois aumenta a frequência de tentativas de expansão em direção ao objetivo. Entretanto, em ambientes com obstáculos entre a árvore e a configuração objetivo, um valor elevado de $p_{\mathrm{goal}}$ pode aumentar o número de tentativas inválidas, uma vez que o planejador tende a insistir em direções bloqueadas.
+Em ambientes simples, isso acelera a convergência. Porém, com obstáculos entre a árvore e o objetivo, um $p_{\mathrm{goal}}$ elevado tende a gerar mais tentativas inválidas, já que o planejador insiste em direções bloqueadas.
 
-Além do viés em direção ao objetivo, diferentes estratégias de amostragem e expansão podem alterar significativamente a distribuição dos nós gerados pela árvore. Em planejadores baseados em RRT, por exemplo, mudanças na forma de selecionar amostras ou expandir novos vértices podem produzir árvores mais concentradas em determinadas regiões ou mais distribuídas ao longo do espaço livre, como ilustrado na Figura~\ref{fig:comparacao_rrt_amostragem}.
+Além do viés em direção ao objetivo, a forma de selecionar amostras e expandir novos vértices altera significativamente a distribuição dos nós, como ilustrado na Figura~\ref{fig:comparacao_rrt_amostragem}.
 
 \begin{figure}[H]
     \centering
@@ -228,7 +220,7 @@ Além do viés em direção ao objetivo, diferentes estratégias de amostragem e
     \label{fig:comparacao_rrt_amostragem}
 \end{figure}
 
-No caso do RRT original, um mecanismo importante de exploração é conhecido como \textbf{viés de Voronoi}. Considere uma árvore $T$ composta por vértices $q_1, q_2, \ldots, q_n$. A região de Voronoi associada a um vértice $q_i$ pode ser definida como o conjunto de pontos do espaço que estão mais próximos de $q_i$ do que de qualquer outro vértice da árvore, conforme apresentado na Equação~\ref{eq:voronoi_region}.
+No RRT, um mecanismo importante é o \textbf{viés de Voronoi}. Dada uma árvore $T$ com vértices $q_1, \ldots, q_n$, a região de Voronoi de $q_i$ é o conjunto de pontos mais próximos dele do que de qualquer outro vértice:
 
 \begin{equation}
 V(q_i) =
@@ -239,16 +231,16 @@ d(q,q_i) \leq d(q,q_j), \; \forall j \neq i
 \label{eq:voronoi_region}
 \end{equation}
 
-A Figura~\ref{fig:voronoi_rrt} apresenta uma representação conceitual das regiões de Voronoi associadas aos vértices de uma árvore RRT. Nessa representação, regiões maiores, especialmente nas extremidades da árvore, indicam vértices com maior probabilidade de seleção durante a expansão.
+A Figura~\ref{fig:voronoi_rrt} ilustra essas regiões em uma árvore RRT. Regiões maiores, geralmente nas extremidades da árvore, indicam vértices com maior probabilidade de serem selecionados.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.65\textwidth]{tcc/Cap02/img/image2.png}
-    \caption{Representação conceitual das regiões de Voronoi associadas aos vértices de uma árvore RRT. Regiões externas ou maiores ocupam uma porção maior do espaço e, por isso, seus vértices possuem maior probabilidade de seleção durante a expansão da árvore. Fonte: \citep{arnold2013convexhull}.}
+    \caption{Representação conceitual das regiões de Voronoi associadas aos vértices de uma árvore RRT. Regiões maiores possuem maior probabilidade de seleção durante a expansão. Fonte: \citep{arnold2013convexhull}.}
     \label{fig:voronoi_rrt}
 \end{figure}
 
-Quando uma amostra $q_{\mathrm{rand}}$ é gerada uniformemente, o vértice escolhido para expansão é aquele mais próximo da amostra. Dessa forma, vértices associados a regiões de Voronoi maiores possuem maior probabilidade de serem selecionados. Considerando uma distribuição uniforme sobre $Q_{\mathrm{free}}$, essa probabilidade pode ser interpretada como proporcional à medida da região de Voronoi associada ao vértice, conforme indicado na Equação~\ref{eq:voronoi_bias}.
+Quando $q_{\mathrm{rand}}$ é gerada uniformemente, o vértice mais próximo é selecionado para expansão. Vértices com regiões de Voronoi maiores têm maior chance de seleção, proporcional à medida de sua região:
 
 \begin{equation}
 P(q_i \text{ ser selecionado}) =
@@ -256,18 +248,16 @@ P(q_i \text{ ser selecionado}) =
 \label{eq:voronoi_bias}
 \end{equation}
 
-em que $\mu(V(q_i))$ representa a medida da região de Voronoi associada ao vértice $q_i$, e $\mu(Q_{\mathrm{free}})$ representa a medida total do espaço livre. Esse comportamento faz com que o RRT expanda naturalmente em direção a regiões ainda pouco exploradas do espaço de configuração, contribuindo para sua capacidade de exploração rápida.
+onde $\mu(V(q_i))$ é a medida da região de $q_i$ e $\mu(Q_{\mathrm{free}})$ a medida total do espaço livre. O RRT tende, assim, a expandir naturalmente em direção a regiões ainda pouco exploradas.
 
-No EST, o mecanismo de exploração é diferente. Em vez de selecionar o vértice mais próximo de uma amostra global, o algoritmo escolhe diretamente um nó da árvore com base em uma estimativa de densidade local. De forma geral, nós localizados em regiões menos densamente amostradas recebem maior probabilidade de expansão.
-
-Essa ideia pode ser representada por um peso inversamente proporcional à densidade local, conforme definido na Equação~\ref{eq:est_weight}.
+O EST funciona de forma diferente. Em vez de selecionar o vértice mais próximo de uma amostra global, escolhe um nó com base em estimativa de densidade local. Nós em regiões menos densas recebem maior probabilidade de expansão, com peso
 
 \begin{equation}
 w(q_i) = \frac{1}{\rho(q_i) + \varepsilon},
 \label{eq:est_weight}
 \end{equation}
 
-em que $\rho(q_i)$ representa uma estimativa da densidade de amostras ao redor de $q_i$, e $\varepsilon$ é um pequeno valor positivo utilizado para evitar divisão por zero. A probabilidade de seleção de um nó pode então ser escrita conforme a Equação~\ref{eq:est_probability}.
+onde $\rho(q_i)$ estima a densidade ao redor de $q_i$ e $\varepsilon > 0$ evita divisão por zero. A probabilidade de seleção é
 
 \begin{equation}
 P(q_i) =
@@ -276,14 +266,14 @@ P(q_i) =
 \label{eq:est_probability}
 \end{equation}
 
-Assim, enquanto o RRT possui um viés implícito associado às regiões de Voronoi, o EST utiliza explicitamente uma estimativa de densidade para favorecer regiões menos exploradas. Essa diferença é relevante para este trabalho, pois a variante híbrida proposta busca combinar a capacidade de exploração global do RRT com o controle de densidade local característico do EST.
+O RRT tem viés implícito pelo diagrama de Voronoi; o EST controla explicitamente a densidade para favorecer regiões menos cobertas. Essa distinção é importante para a variante híbrida proposta, que combina esses dois mecanismos.
 
 \subsection{Rapidly-exploring Random Trees (RRT)}
 \label{subsec:rrt}
 
-O algoritmo RRT, introduzido por \citet{lavalle1998rapidly} e apresentado em \citet{choset2005principles}, constrói incrementalmente uma árvore enraizada em $q_{\mathrm{start}}$. A expansão ocorre em direção a amostras aleatórias do espaço de configuração.
+O RRT, introduzido por \citet{lavalle1998rapidly} e descrito em \citet{choset2005principles}, constrói incrementalmente uma árvore enraizada em $q_{\mathrm{start}}$, expandindo em direção a amostras aleatórias do espaço de configuração.
 
-Como discutido na \autoref{subsec:amostragem_vies}, uma propriedade importante do RRT é o viés implícito de Voronoi. Como a expansão ocorre a partir do vértice mais próximo de uma amostra aleatória, vértices associados a regiões maiores do espaço possuem maior probabilidade de seleção. Esse comportamento favorece a expansão da árvore em direção a regiões ainda pouco exploradas.
+Como discutido na Seção~\ref{subsec:amostragem_vies}, vértices com maiores regiões de Voronoi associadas têm maior probabilidade de seleção, o que leva o RRT a explorar regiões ainda pouco cobertas sem nenhuma lógica explícita de densidade.
 
 \begin{algorithm}[H]
 \caption{RRT}
@@ -300,19 +290,15 @@ Como discutido na \autoref{subsec:amostragem_vies}, uma propriedade importante d
 \end{algorithmic}
 \end{algorithm}
 
-O RRT é probabilisticamente completo sob hipóteses adequadas de existência de caminho com folga positiva, porém não é assintoticamente ótimo.
+O RRT é probabilisticamente completo sob hipóteses de existência de caminho com folga positiva, mas não é assintoticamente ótimo.
 
 \subsection{RRT-Connect}
 
-Proposto por \citet{kuffner2000rrtconnect}, o RRT-Connect é uma extensão bidirecional do RRT. Em vez de construir uma única árvore a partir de $q_{\mathrm{start}}$, o algoritmo mantém duas árvores: uma enraizada na configuração inicial e outra na configuração objetivo.
-
-A cada iteração, uma das árvores é expandida em direção a uma amostra aleatória, enquanto a outra tenta conectar-se ao novo vértice gerado. Essa tentativa de conexão é realizada de forma mais agressiva do que no RRT tradicional, repetindo expansões sucessivas enquanto a conexão permanecer válida.
-
-Essa estratégia tende a reduzir o número de iterações necessárias para encontrar uma solução, especialmente em cenários nos quais as regiões associadas ao início e ao objetivo podem ser conectadas por uma sequência viável de expansões locais.
+Proposto por \citet{kuffner2000rrtconnect}, o RRT-Connect mantém duas árvores: uma enraizada em $q_{\mathrm{start}}$ e outra em $q_{\mathrm{goal}}$. A cada iteração, uma árvore é expandida em direção a uma amostra aleatória, enquanto a outra tenta se conectar ao novo vértice gerado, de forma mais agressiva do que no RRT tradicional, com expansões repetidas enquanto a conexão for válida. Na prática, isso reduz o número de iterações necessárias em cenários onde as duas regiões podem ser ligadas por expansões locais viáveis.
 
 \subsection{RRT*}
 
-O RRT* foi introduzido por \citet{Karaman2011SamplingbasedAF} como uma modificação do RRT capaz de garantir \textbf{otimalidade assintótica}. Além da expansão incremental, o algoritmo executa uma etapa de reconexão local (\textit{rewiring}), na qual vértices vizinhos podem ser reconectados caso isso reduza o custo total do caminho.
+O RRT* foi introduzido por \citet{Karaman2011SamplingbasedAF} como uma modificação do RRT com garantia de \textbf{otimalidade assintótica}. Além da expansão incremental, inclui uma etapa de reconexão local (\textit{rewiring}): vértices vizinhos são reconectados caso isso reduza o custo total do caminho desde a raiz.
 
 \begin{algorithm}[H]
 \caption{RRT*}
@@ -336,11 +322,9 @@ O RRT* é simultaneamente probabilisticamente completo e assintoticamente ótimo
 \subsection{Expansive Space Trees (EST)}
 \label{subsec:est}
 
-O algoritmo Expansive Space Trees (EST) é um planejador baseado em árvores que busca explorar o espaço de configuração por meio da expansão preferencial de regiões pouco densamente amostradas~\cite{choset2005principles}. Diferentemente do RRT, no qual a expansão é guiada por amostras aleatórias globais e pela escolha do vértice mais próximo, o EST seleciona diretamente um nó da árvore com base em uma estimativa de densidade local.
+O EST é um planejador baseado em árvores que expande preferencialmente regiões pouco densamente amostradas~\cite{choset2005principles}. Não usa amostras aleatórias globais nem o critério do vértice mais próximo: a seleção é guiada por uma estimativa de densidade local, e a nova configuração é gerada por perturbação aleatória a partir do nó escolhido.
 
-A ideia central é evitar que a árvore cresça repetidamente em regiões já exploradas. Para isso, nós localizados em regiões com menor densidade de amostras recebem maior probabilidade de seleção. Após a escolha do nó, uma nova configuração é gerada por meio de uma perturbação aleatória local. Caso a conexão entre o nó selecionado e a nova configuração seja livre de colisão, o novo vértice é adicionado à árvore.
-
-Sob hipóteses relacionadas à expansividade do espaço livre, o EST apresenta completude probabilística. Na prática, isso significa que sua capacidade de exploração depende da possibilidade de expandir progressivamente a árvore por regiões ainda pouco cobertas do espaço de configuração.
+O objetivo é evitar que a árvore cresça repetidamente em regiões já exploradas. Nós em regiões menos densas recebem maior probabilidade de seleção. Se a conexão for livre de colisão, o vértice é adicionado à árvore.
 
 \begin{algorithm}[H]
 \caption{EST}
@@ -348,7 +332,7 @@ Sob hipóteses relacionadas à expansividade do espaço livre, o EST apresenta c
 \State $T \gets \{q_{\mathrm{start}}\}$
 \While{não atingir critério de parada}
     \State selecionar $q \in T$ com probabilidade inversamente proporcional à densidade local
-    \State gerar nova configuração $q_{\mathrm{new}}$ por perturbação aleatória
+    \State gerar $q_{\mathrm{new}}$ por perturbação aleatória
     \If{$\textsc{CollisionFree}(q, q_{\mathrm{new}})$}
         \State adicionar $q_{\mathrm{new}}$ a $T$
     \EndIf
@@ -356,10 +340,12 @@ Sob hipóteses relacionadas à expansividade do espaço livre, o EST apresenta c
 \end{algorithmic}
 \end{algorithm}
 
+Sob hipóteses de expansividade do espaço livre, o EST é probabilisticamente completo.
+
 \subsection{Síntese dos algoritmos apresentados}
 \label{subsec:sintese_algoritmos}
 
-Os algoritmos apresentados diferem quanto à forma de exploração do espaço e às garantias teóricas associadas. O RRT privilegia a exploração rápida por meio do viés de Voronoi, enquanto o RRT* adiciona mecanismos de reconexão para melhorar progressivamente a qualidade da solução. O EST, por sua vez, utiliza uma estratégia de seleção baseada em densidade local, favorecendo regiões menos exploradas do espaço de configuração.
+Os três algoritmos diferem principalmente no critério de expansão e nas garantias teóricas. O RRT explora rapidamente pelo viés de Voronoi. O RRT* acrescenta reconexão orientada por custo. O EST distribui a exploração com base em densidade local, sem atração global explícita.
 
 \begin{table}[H]
 \centering
@@ -369,146 +355,131 @@ Os algoritmos apresentados diferem quanto à forma de exploração do espaço e 
 \toprule
 \textbf{Aspecto} & \textbf{RRT} & \textbf{EST} \\ \midrule
 Estrutura de busca & Árvore incremental & Árvore incremental \\
-Critério de expansão & Expansão em direção a uma amostra aleatória & Seleção de nós com base em densidade local \\
-Mecanismo de exploração & Viés de Voronoi implícito & Priorização explícita de regiões pouco densas \\
-Probabilidade de seleção & Proporcional ao tamanho da região de Voronoi associada ao vértice & Inversamente proporcional à densidade local estimada \\
+Critério de expansão & Expansão em direção a amostra aleatória & Seleção de nós por densidade local \\
+Mecanismo de exploração & Viés de Voronoi implícito & Priorização de regiões pouco densas \\
+Probabilidade de seleção & Proporcional ao tamanho da região de Voronoi & Inversamente proporcional à densidade local \\
 Geração de novos nós & Direcionada por $q_{\mathrm{rand}}$ & Perturbação aleatória local \\
-Vantagem principal & Exploração rápida do espaço & Cobertura mais equilibrada do espaço livre \\
-Limitação & Pode gerar muitas colisões em regiões obstruídas & Pode avançar lentamente em grandes espaços abertos \\ \bottomrule
+Vantagem principal & Exploração rápida do espaço & Cobertura equilibrada do espaço livre \\
+Limitação & Muitas colisões em regiões obstruídas & Lento em grandes espaços abertos \\ \bottomrule
 \end{tabular}
 \end{table}
 
-Essas diferenças são relevantes para este trabalho, pois a variante híbrida proposta busca combinar características de exploração global do RRT com mecanismos de controle de densidade associados ao EST.
+A variante híbrida proposta neste trabalho busca combinar a força de exploração global do RRT com o controle de densidade do EST, aproveitando o que cada um tem de melhor.
 
 \section{Propriedades formais dos planejadores}
 \label{sec:propriedades_formais}
 
-Os algoritmos de planejamento de movimento podem ser analisados a partir de propriedades formais relacionadas à existência de solução, à capacidade de encontrá-la e à qualidade do caminho obtido. Essas propriedades permitem comparar planejadores não apenas pelo desempenho experimental, mas também pelas garantias teóricas associadas ao seu funcionamento.
+Os algoritmos de planejamento podem ser comparados por propriedades formais relacionadas à existência de solução, à capacidade de encontrá-la e à qualidade do caminho obtido. Essas propriedades complementam a avaliação experimental, pois descrevem o comportamento do algoritmo no limite.
 
-Nesta seção, essas propriedades são discutidas sob a perspectiva de projeto e análise de algoritmos. O objetivo não é reproduzir integralmente as provas formais da literatura, mas explicitar os argumentos fundamentais utilizados para justificar propriedades como completude probabilística e otimalidade assintótica no contexto dos algoritmos discutidos anteriormente.
+Esta seção não reproduz as provas formais da literatura. O foco é apresentar os principais argumentos por trás da completude probabilística e da otimalidade assintótica, no contexto dos algoritmos discutidos.
+
 \subsection{Completude probabilística no RRT e no EST}
 \label{subsec:completude_rrt_est}
 
-Embora o RRT e o EST sejam ambos planejadores probabilísticos baseados em árvores, suas garantias de completude probabilística são obtidas por argumentos diferentes. No RRT, a análise costuma partir da existência de um caminho viável com folga positiva em relação aos obstáculos. No EST, por outro lado, a prova depende de propriedades de expansividade do espaço livre, que garantem que a árvore consiga continuar avançando para regiões ainda pouco exploradas.
+Embora ambos sejam probabilisticamente completos, RRT e EST chegam a essa garantia por caminhos distintos. No RRT, o argumento parte da existência de um caminho com folga positiva em relação aos obstáculos. No EST, é necessário assumir que o espaço livre possui propriedades de expansividade.
 
-Seja $A_k$ o evento de que o planejador encontrou uma solução após $k$ iterações. Um planejador é dito probabilisticamente completo quando a probabilidade de sucesso tende a $1$ à medida que o número de iterações cresce, conforme indicado na Equação~\ref{eq:def_completude_probabilistica}.
+Seja $A_k$ o evento de que o planejador encontrou solução após $k$ iterações. A completude probabilística exige que
 
 \begin{equation}
-    \lim_{k \rightarrow \infty} \mathbb{P}(A_k) = 1.
+    \lim_{k \rightarrow \infty} \mathbb{P}(A_k) = 1,
     \label{eq:def_completude_probabilistica}
 \end{equation}
 
-De forma equivalente, a probabilidade de falha tende a zero:
+ou, equivalentemente, que a probabilidade de falha vá a zero:
 
 \begin{equation}
-    \lim_{k \rightarrow \infty} \mathbb{P}(A_k^c) = 0,
+    \lim_{k \rightarrow \infty} \mathbb{P}(A_k^c) = 0.
     \label{eq:def_falha_probabilistica}
 \end{equation}
 
-em que $A_k^c$ representa o evento de falha após $k$ iterações. A seguir, essa propriedade é analisada para o RRT e para o EST.
-
 \paragraph{Ideia da prova para o RRT:}
 
-No caso do RRT geométrico, Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} mostram que a completude probabilística pode ser demonstrada assumindo que existe uma solução com folga positiva. Essa hipótese é importante porque garante que o caminho solução não tangencia obstáculos. Assim, existe uma vizinhança ao redor desse caminho que permanece inteiramente contida em $Q_{\mathrm{free}}$.
+Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} demonstram a completude sob a hipótese de existência de solução com folga positiva $\delta > 0$, que garante uma vizinhança ao redor do caminho inteiramente em $Q_{\mathrm{free}}$.
 
-Considere um caminho válido $\pi$ de $q_{\mathrm{start}}$ até a região objetivo, inteiramente contido em $Q_{\mathrm{free}}$, com folga positiva $\delta > 0$. Essa folga permite cobrir o caminho por uma sequência finita de bolas abertas, conforme indicado na Equação~\ref{eq:rrt_cobertura_bolas}.
+Dado um caminho válido $\pi$, essa folga permite cobri-lo por uma sequência finita de bolas abertas:
 
 \begin{equation}
     B_0, B_1, \ldots, B_m,
     \label{eq:rrt_cobertura_bolas}
 \end{equation}
 
-Nessa cobertura, $B_0$ contém a configuração inicial, $B_m$ intersecta a região objetivo, e todas as bolas estão contidas em $Q_{\mathrm{free}}$. Dessa forma, em vez de analisar diretamente todos os pontos do caminho contínuo, a prova passa a considerar uma sequência finita de regiões que a árvore precisa alcançar.
+com $B_0$ contendo $q_{\mathrm{start}}$, $B_m$ intersectando a região objetivo e todas as bolas em $Q_{\mathrm{free}}$. Em vez de analisar o caminho contínuo, a prova considera essa sequência finita de regiões que a árvore precisa alcançar.
 
-Assume-se que o espaço de amostragem $Q$ é mensurável e possui medida finita, isto é, $0 < \mu(Q) < \infty$. Essa hipótese é usual em análises de planejadores baseados em amostragem, pois o espaço de configuração é frequentemente tratado como um subconjunto limitado de $\mathbb{R}^n$ ou normalizado para um domínio compacto. Com isso, a probabilidade de uma amostra uniforme cair em uma região mensurável pode ser expressa como a razão entre a medida dessa região e a medida total do espaço de amostragem.
-
-Se a árvore já possui um vértice em $B_i$, o objetivo da análise é mostrar que existe uma chance não nula de avançar para $B_{i+1}$. Como a amostragem é uniforme, a probabilidade de uma amostra cair em $B_{i+1}$ é dada pela Equação~\ref{eq:probabilidade_avanco_rrt}.
+Assumindo $Q$ mensurável com $0 < \mu(Q) < \infty$, a probabilidade de uma amostra uniforme cair em $B_{i+1}$ é
 
 \begin{equation}
     p_i = \frac{\mu(B_{i+1})}{\mu(Q)} > 0.
     \label{eq:probabilidade_avanco_rrt}
 \end{equation}
 
-Como $B_{i+1}$ possui medida positiva, tem-se $p_i > 0$. Se a amostra cair nessa região e o operador de expansão produzir uma conexão compatível com a folga do caminho, o segmento gerado permanece em $Q_{\mathrm{free}}$. Assim, o avanço de $B_i$ para $B_{i+1}$ pode ser visto como um evento de sucesso.
+Como cada bola tem medida positiva, $p_i > 0$. Se a amostra cair em $B_{i+1}$ e o operador de expansão produzir uma conexão compatível com a folga, o segmento permanece em $Q_{\mathrm{free}}$.
 
-Esse raciocínio pode ser organizado como um esquema de prova, conforme apresentado no Algoritmo~\ref{alg:prova_completude_rrt}. O pseudocódigo não representa a execução do RRT, mas sim a estrutura lógica do argumento utilizado para justificar sua completude probabilística.
+O Algoritmo~\ref{alg:prova_completude_rrt} resume esse argumento.
 
 \begin{algorithm}[H]
 \caption{Esquema de prova da completude probabilística do RRT}
 \label{alg:prova_completude_rrt}
 \begin{algorithmic}[1]
-\State \textbf{Entrada:} caminho viável $\pi$ com folga positiva $\delta > 0$
+\State \textbf{Entrada:} caminho viável $\pi$ com folga $\delta > 0$
 \State \textbf{Saída:} conclusão de que $\mathbb{P}(A_k) \rightarrow 1$
-\State Cobrir $\pi$ por uma sequência finita de bolas $B_0, B_1, \ldots, B_m \subset Q_{\mathrm{free}}$
-\State Definir $B_0$ contendo $q_{\mathrm{start}}$ e $B_m$ intersectando a região objetivo
+\State Cobrir $\pi$ por bolas $B_0, B_1, \ldots, B_m \subset Q_{\mathrm{free}}$
 \For{$i \gets 0$ até $m-1$}
-    \State Assumir que a árvore $T$ já alcançou a região $B_i$
-    \State Calcular a probabilidade de uma amostra cair em $B_{i+1}$
-    \State $p_i \gets \dfrac{\mu(B_{i+1})}{\mu(Q)}$
-    \State Como $\mu(B_{i+1}) > 0$, concluir que $p_i > 0$
-    \State Concluir que existe probabilidade positiva de avançar de $B_i$ para $B_{i+1}$
+    \State Assumir que $T$ já alcançou $B_i$
+    \State $p_i \gets \dfrac{\mu(B_{i+1})}{\mu(Q)}$; como $\mu(B_{i+1}) > 0$, então $p_i > 0$
 \EndFor
-\State Como há um número finito de regiões, alcançar o objetivo requer uma sequência finita de sucessos
-\State Como cada sucesso possui probabilidade positiva, a probabilidade de falhar indefinidamente tende a zero
-\State Concluir que $\lim_{k \to \infty}\mathbb{P}(A_k)=1$
+\State Alcançar o objetivo requer uma sequência finita de avanços com probabilidade positiva
+\State Logo, a probabilidade de falhar indefinidamente tende a zero
+\State Concluir: $\lim_{k \to \infty}\mathbb{P}(A_k)=1$
 \end{algorithmic}
 \end{algorithm}
 
-Como existe apenas um número finito de bolas na cobertura da Equação~\ref{eq:rrt_cobertura_bolas}, alcançar a região objetivo equivale a obter uma sequência finita de sucessos. Em termos de análise probabilística, esse processo pode ser interpretado como uma sequência de tentativas independentes, nas quais cada etapa possui probabilidade positiva de avanço. Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} mostram que, para o RRT geométrico, a probabilidade de falha após $k$ iterações pode ser limitada por uma função exponencial, conforme a Equação~\ref{eq:falha_exponencial_rrt}.
+Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} mostram ainda que a probabilidade de falha decai exponencialmente:
 
 \begin{equation}
     \mathbb{P}(A_k^c) \leq a e^{-bk},
     \label{eq:falha_exponencial_rrt}
 \end{equation}
 
-em que $A_k^c$ representa o evento de falha após $k$ iterações, e $a,b > 0$ são constantes. Como $e^{-bk} \rightarrow 0$ quando $k \rightarrow \infty$, a probabilidade de falha tende a zero. Consequentemente, a probabilidade de sucesso tende a $1$, caracterizando a completude probabilística do RRT sob essas hipóteses.
+com $a, b > 0$. Como $e^{-bk} \rightarrow 0$, a completude probabilística está estabelecida.
 
 \paragraph{Ideia da prova para o EST:}
 
-A análise do EST segue uma linha diferente. O algoritmo não expande a árvore a partir do vértice mais próximo de uma amostra global, como ocorre no RRT. Em vez disso, seleciona nós com base em uma estimativa de densidade local, favorecendo regiões menos exploradas. Por isso, sua completude probabilística depende da hipótese de que o espaço livre possui propriedades de expansividade.
+O argumento do EST segue linha diferente. O algoritmo não expande a partir do vértice mais próximo de uma amostra global, então a prova não pode se apoiar diretamente na medida das bolas ao longo de um caminho. Em vez disso, depende da hipótese de que o espaço livre é expansivo: regiões já alcançadas têm visibilidade suficiente para permitir expansão em novas áreas, evitando que a árvore fique confinada em uma sub-região indefinidamente~\cite{hsu1997path,hsu1999path}.
 
-Um espaço expansivo pode ser entendido, de forma intuitiva, como um espaço no qual regiões já alcançadas pela árvore possuem visibilidade suficiente para permitir a expansão para novas áreas. Assim, a árvore não fica confinada indefinidamente em uma sub-região do espaço, pois sempre existe uma parcela relevante de $Q_{\mathrm{free}}$ que pode ser alcançada por expansões sucessivas. A análise original do EST relaciona essa propriedade à completude probabilística em espaços expansivos~\cite{hsu1997path,hsu1999path}.
-
-De forma simplificada, o EST atribui a cada nó $q_i$ um peso inversamente proporcional à sua densidade local, conforme apresentado na Equação~\ref{eq:peso_est_completude}.
+O EST atribui a cada nó $q_i$ um peso inversamente proporcional à densidade local:
 
 \begin{equation}
     w(q_i) = \frac{1}{\rho(q_i) + \varepsilon},
     \label{eq:peso_est_completude}
 \end{equation}
 
-em que $\rho(q_i)$ representa uma estimativa da densidade ao redor de $q_i$, e $\varepsilon > 0$ evita divisão por zero. A partir desse peso, a probabilidade de seleção do nó pode ser escrita conforme a Equação~\ref{eq:probabilidade_est_completude}.
+com probabilidade de seleção
 
 \begin{equation}
     P(q_i) = \frac{w(q_i)}{\sum_{q_j \in T} w(q_j)}.
     \label{eq:probabilidade_est_completude}
 \end{equation}
 
-Essa distribuição reduz a concentração excessiva da exploração em regiões já densamente amostradas e aumenta a chance de expansão a partir de áreas pouco exploradas. Sob as hipóteses de expansividade discutidas por Hsu et al.~\cite{hsu1997path,hsu1999path}, essa estratégia mantém probabilidade positiva de selecionar regiões úteis para expansão e avançar progressivamente pelo espaço livre.
+Essa distribuição evita concentração excessiva em regiões já densas e mantém probabilidade positiva de expandir em áreas ainda pouco cobertas. Sob as hipóteses de Hsu et al.~\cite{hsu1997path,hsu1999path}, isso é suficiente para garantir que a árvore avance progressivamente pelo espaço livre.
 
-O Algoritmo~\ref{alg:prova_completude_est} organiza esse argumento em forma de pseudocódigo de prova. Diferentemente do RRT, o passo essencial não é a amostra cair em uma bola de medida positiva, mas a existência de regiões visíveis e expansíveis a partir da parte já explorada da árvore.
+O Algoritmo~\ref{alg:prova_completude_est} organiza esse argumento.
 
 \begin{algorithm}[H]
 \caption{Esquema de prova da completude probabilística do EST}
 \label{alg:prova_completude_est}
 \begin{algorithmic}[1]
-\State \textbf{Entrada:} espaço livre expansivo e existência de caminho viável
+\State \textbf{Entrada:} espaço livre expansivo e caminho viável
 \State \textbf{Saída:} conclusão de que $\mathbb{P}(A_k) \rightarrow 1$
-\State Considerar uma região já alcançada pela árvore $T$
-\State Pela hipótese de expansividade, identificar uma região livre ainda não explorada e visível a partir de $T$
-\State Identificar ao menos um nó útil $q_i \in T$ capaz de expandir em direção a essa região
-\State Calcular o peso $w(q_i)$ com base na densidade local
-\State Atribuir a $q_i$ probabilidade positiva de seleção pela distribuição da Equação~\ref{eq:probabilidade_est_completude}
-\State Gerar uma perturbação local a partir de $q_i$
-\If{a perturbação gera conexão livre de colisão}
-    \State A árvore avança para uma nova região de $Q_{\mathrm{free}}$
-\EndIf
-\State Repetir o argumento para uma sequência finita de regiões até a região objetivo
-\State Concluir que a probabilidade de falhar indefinidamente tende a zero
-\State Concluir que $\lim_{k \to \infty}\mathbb{P}(A_k)=1$
+\State Pela hipótese de expansividade, identificar região livre visível a partir da parte já alcançada de $T$
+\State Identificar nó útil $q_i \in T$ com densidade local baixa
+\State Atribuir a $q_i$ probabilidade positiva pela distribuição da Equação~\ref{eq:probabilidade_est_completude}
+\State Gerar perturbação local; se livre de colisão, a árvore avança para nova região
+\State Repetir para uma sequência finita de regiões até o objetivo
+\State Concluir: $\lim_{k \to \infty}\mathbb{P}(A_k)=1$
 \end{algorithmic}
 \end{algorithm}
 
-Portanto, a diferença central entre os dois argumentos está nas hipóteses utilizadas. O RRT geométrico se apoia na existência de um caminho com folga positiva e em regiões de medida não nula ao longo desse caminho. O EST, por sua vez, depende da expansividade estrutural do espaço livre para garantir que a política baseada em densidade não estagne. A Tabela~\ref{tab:comparacao_completude_rrt_est} resume essa comparação.
+O RRT se apoia na medida positiva das bolas ao longo de um caminho com folga. O EST depende de uma propriedade estrutural do espaço livre. A Tabela~\ref{tab:comparacao_completude_rrt_est} resume a comparação.
 
 \begin{table}[H]
 \centering
@@ -517,21 +488,22 @@ Portanto, a diferença central entre os dois argumentos está nas hipóteses uti
 \begin{tabular}{@{}p{3.5cm}p{5.5cm}p{5.5cm}@{}}
 \toprule
 \textbf{Aspecto} & \textbf{RRT} & \textbf{EST} \\ \midrule
-Mecanismo de expansão & Expande o vértice mais próximo de uma amostra aleatória & Seleciona nós com base em densidade local \\
-Hipótese principal & Caminho viável com folga positiva e medida de Lebesgue $> 0$ & Existência de condições de expansividade no espaço livre \\
-Evento de sucesso & Amostra cair em região de medida positiva & Selecionar nó útil e gerar perturbação válida para região pouco densa \\
-Estrutura da prova & Cobertura por bolas e avanço sequencial & Expansão progressiva em espaços expansivos via controle de densidade \\
+Mecanismo de expansão & Vértice mais próximo de amostra aleatória & Nós selecionados por densidade local \\
+Hipótese principal & Caminho com folga positiva e medida de Lebesgue $> 0$ & Condições de expansividade no espaço livre \\
+Evento de sucesso & Amostra cair em região de medida positiva & Selecionar nó útil e gerar perturbação válida \\
+Estrutura da prova & Cobertura por bolas e avanço sequencial & Expansão progressiva via controle de densidade \\
 Garantia obtida & Completude probabilística & Completude probabilística sob expansividade \\ \bottomrule
 \end{tabular}
 \end{table}
 
-A comparação entre os argumentos de completude do RRT e do EST é relevante para este trabalho porque a variante proposta combina mecanismos desses dois planejadores. A análise detalhada do algoritmo híbrido, incluindo sua regra de escolha entre expansão global e expansão por densidade, bem como a discussão sobre a preservação da completude probabilística, é apresentada no Capítulo~\ref{cap:metodologia}.
+Essa comparação é retomada no Capítulo~\ref{cap:metodologia}, onde a variante híbrida proposta é analisada sob as mesmas hipóteses.
+
 \subsection{Otimalidade assintótica no RRT e no EST}
 \label{subsec:otimalidade_rrt_est}
 
-A completude probabilística trata da capacidade de encontrar alguma solução viável, mas não garante que essa solução seja de boa qualidade. Um planejador pode ser probabilisticamente completo e, ainda assim, retornar caminhos longos, irregulares ou distantes do ótimo. Para analisar a qualidade da solução no limite, utiliza-se a propriedade de \textbf{otimalidade assintótica}.
+Completude probabilística não diz nada sobre a qualidade da solução encontrada. Um planejador pode ser completo e retornar caminhos longos ou irregulares sem nenhuma garantia de melhora. Para isso existe a propriedade de \textbf{otimalidade assintótica}.
 
-Seja $c^*$ o custo ótimo do problema e seja $c_k$ o custo da melhor solução encontrada pelo planejador após $k$ amostras. Um planejador é dito assintoticamente ótimo quando, para qualquer $\varepsilon > 0$, a probabilidade de encontrar uma solução com custo a menos de $\varepsilon$ do ótimo tende a $1$, conforme definido na Equação~\ref{eq:otimalidade_assintotica_rrt_est}.
+Seja $c^*$ o custo ótimo e $c_k$ o custo da melhor solução após $k$ amostras. O planejador é assintoticamente ótimo quando, para qualquer $\varepsilon > 0$:
 
 \begin{equation}
     \lim_{k \rightarrow \infty}
@@ -539,19 +511,13 @@ Seja $c^*$ o custo ótimo do problema e seja $c_k$ o custo da melhor solução e
     \label{eq:otimalidade_assintotica_rrt_est}
 \end{equation}
 
-Em termos de análise de algoritmos, essa propriedade é mais forte do que a completude probabilística. A completude probabilística exige apenas que o algoritmo encontre um caminho viável com probabilidade tendendo a $1$. A otimalidade assintótica exige, além disso, que a melhor solução encontrada seja progressivamente melhorada até se aproximar do custo ótimo.
+O RRT padrão não satisfaz essa propriedade. Cada vértice é conectado ao nó mais próximo sem considerar custo acumulado, e as conexões não são revisadas depois da inserção. Não há mecanismo que force a melhora progressiva dos caminhos encontrados.
 
-O RRT padrão não satisfaz essa propriedade. Seu objetivo principal é explorar rapidamente o espaço de configuração e encontrar uma solução viável. Para isso, o algoritmo conecta cada novo vértice ao nó mais próximo da árvore, sem avaliar se essa conexão minimiza o custo acumulado desde a raiz. Além disso, depois que um vértice é inserido, sua conexão com o restante da árvore não é revisada. Assim, o RRT não possui um mecanismo sistemático de melhoria dos caminhos já encontrados.
+O EST padrão tem a mesma limitação. Sua seleção por densidade favorece a cobertura do espaço, mas não é orientada por custo. Sem reconexão ou escolha de melhor pai, o algoritmo não converge para o ótimo.
 
-O EST padrão apresenta limitação semelhante. Embora sua estratégia de seleção por densidade favoreça a cobertura de regiões pouco exploradas, ela não é orientada diretamente pela minimização de uma função de custo. O algoritmo prioriza a distribuição dos nós no espaço livre, mas não executa etapas de escolha de melhor pai, reconexão local ou refinamento de caminhos. Por isso, em sua forma padrão, o EST também não possui garantia de convergência assintótica para o caminho ótimo.
+Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF} mostram formalmente que RRT e EST não são assintoticamente ótimos em suas formulações originais, e propõem o RRT* como alternativa. A modificação central está em dois pontos: ao inserir um vértice, escolhe-se o vizinho que oferece menor custo acumulado desde a raiz, não o mais próximo; depois, os vértices vizinhos são verificados e reconectados se isso reduzir seus custos. A árvore não apenas cresce, mas continuamente melhora sua estrutura de custos.
 
-Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF} discutem que algoritmos como RRT e EST não são assintoticamente ótimos em suas formulações originais, e propõem variantes como RRT* e PRM* para obter garantias de otimalidade assintótica. No caso do RRT*, a principal diferença está na introdução de dois mecanismos: a escolha do melhor pai para cada novo vértice e a reconexão local dos vértices vizinhos, conhecida como \textit{rewiring}.
-
-Na escolha do melhor pai, o novo vértice não é necessariamente conectado ao vizinho mais próximo, mas ao vizinho que oferece o menor custo acumulado desde a raiz. Em seguida, o \textit{rewiring} verifica se os vértices próximos podem reduzir seus custos ao serem reconectados por meio do novo vértice. Dessa forma, a árvore não apenas cresce, mas também melhora progressivamente sua estrutura de custos.
-
-A ideia da prova de otimalidade assintótica para métodos como o RRT* parte do fato de que, com o aumento do número de amostras, o espaço livre passa a ser representado de forma cada vez mais densa. Se existe um caminho ótimo, ou quase ótimo, com folga positiva, esse caminho pode ser aproximado por uma sequência de regiões pequenas. À medida que o número de amostras cresce, a probabilidade de haver vértices nessas regiões tende a $1$. Como o RRT* possui mecanismos de conexão e reconexão orientados por custo, essas amostras podem ser usadas para formar caminhos com custo progressivamente mais próximo de $c^*$.
-
-A Tabela~\ref{tab:comparacao_otimalidade_rrt_est} resume a diferença entre RRT, EST e RRT* quanto à otimalidade assintótica.
+A Tabela~\ref{tab:comparacao_otimalidade_rrt_est} resume a situação dos três algoritmos.
 
 \begin{table}[H]
 \centering
@@ -561,39 +527,35 @@ A Tabela~\ref{tab:comparacao_otimalidade_rrt_est} resume a diferença entre RRT,
 \toprule
 \textbf{Aspecto} & \textbf{RRT} & \textbf{EST} & \textbf{RRT*} \\ \midrule
 Objetivo principal & Exploração rápida & Cobertura por densidade & Melhoria progressiva do custo \\
-Critério de conexão & Vizinho mais próximo & Nó selecionado por densidade & Melhor pai entre vizinhos \\
-Considera custo acumulado? & Não diretamente & Não diretamente & Sim \\
+Critério de conexão & Vizinho mais próximo & Nó por densidade & Melhor pai entre vizinhos \\
+Considera custo acumulado? & Não & Não & Sim \\
 Possui \textit{rewiring}? & Não & Não & Sim \\
-Melhora caminhos já encontrados? & Não sistematicamente & Não sistematicamente & Sim \\
-Completude probabilística & Sim, sob hipótese de folga positiva & Sim, sob expansividade & Sim \\
-Otimalidade assintótica & Não & Não na versão padrão & Sim \\ \bottomrule
+Melhora caminhos encontrados? & Não & Não & Sim \\
+Completude probabilística & Sim & Sim, sob expansividade & Sim \\
+Otimalidade assintótica & Não & Não & Sim \\ \bottomrule
 \end{tabular}
 \end{table}
 
-Portanto, RRT e EST oferecem garantias relacionadas à existência de solução, mas não à convergência para o caminho ótimo. O RRT prioriza a exploração rápida por meio do viés de Voronoi, enquanto o EST busca uma cobertura mais equilibrada do espaço por meio de densidade local. Nenhum dos dois, em sua forma padrão, possui mecanismos suficientes para reduzir progressivamente o custo da solução.
-
-Essa observação é importante para a variante híbrida RRT-EST proposta neste trabalho. A hibridização pode melhorar o equilíbrio entre exploração global e controle de densidade, mas, por si só, não garante otimalidade assintótica. Para que uma variante híbrida RRT-EST possua essa propriedade, seria necessário incorporar mecanismos adicionais de otimização, como escolha de melhor pai, reconexão local ou algum procedimento equivalente de redução progressiva do custo.
+Para a variante híbrida proposta neste trabalho, combinar RRT e EST melhora o equilíbrio entre exploração e cobertura, mas não é suficiente para obter otimalidade assintótica. Isso exigiria incorporar mecanismos como escolha de melhor pai ou \textit{rewiring}.
 
 \section{Trabalhos relacionados}
 \label{sec:trabalhos_relacionados}
 
-Esta seção posiciona o presente trabalho no contexto do planejamento de caminhos baseado em amostragem, destacando as principais contribuições teóricas e evoluções do campo. A literatura foi organizada em quatro eixos: (i) referências fundacionais, (ii) completude probabilística, (iii) otimalidade assintótica e (iv) extensões e aplicações práticas.
+Esta seção posiciona o presente trabalho no contexto do planejamento de caminhos baseado em amostragem. A literatura foi organizada em quatro eixos: (i) referências fundacionais, (ii) completude probabilística, (iii) otimalidade assintótica e (iv) extensões e aplicações práticas.
 
-Os fundamentos conceituais do planejamento de caminhos encontram-se sistematizados nas obras clássicas de Choset et al.~\cite{choset2005principles} e LaValle~\cite{lavalle2006planning}. Esses trabalhos estabelecem a formulação matemática do problema no espaço de configurações, introduzem os algoritmos PRM e EST e discutem propriedades como conectividade, viés de Voronoi e planejamento cinodinâmico. Revisões mais recentes, como Zhang et al.~\cite{Zhang_2025} e Gammell~\cite{gammell2021asymptotically}, consolidam os avanços recentes, especialmente no que diz respeito à escalabilidade e à busca por soluções ótimas.
+Os fundamentos do campo estão sistematizados nas obras de Choset et al.~\cite{choset2005principles} e LaValle~\cite{lavalle2006planning}, que estabelecem a formulação no espaço de configurações, introduzem PRM e EST e discutem propriedades como viés de Voronoi e planejamento cinodinâmico. Zhang et al.~\cite{Zhang_2025} e Gammell~\cite{gammell2021asymptotically} apresentam revisões mais recentes, com foco em escalabilidade e busca por soluções ótimas.
 
-No âmbito da completude probabilística, os trabalhos originais de Kavraki et al.~\cite{kavraki1996probabilistic} e LaValle~\cite{LaValle1998RapidlyexploringRT} introduziram PRM e RRT com argumentos intuitivos de convergência. Para o EST, Hsu et al.~\cite{hsu1997path} propuseram o algoritmo originalmente e apresentaram a análise formal de completude probabilística na versão de periódico~\cite{hsu1999path}: em espaços expansivos, a probabilidade de falha decai exponencialmente com o número de amostras. Essa prova difere da obtida para o RRT, pois requer a hipótese de expansividade do espaço livre, que é mais restritiva do que a simples existência de um caminho com folga $\delta > 0$. A formalização rigorosa da completude do RRT foi posteriormente apresentada por Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric}, sob essa hipótese mais fraca.
+No âmbito da completude, Kavraki et al.~\cite{kavraki1996probabilistic} e LaValle~\cite{LaValle1998RapidlyexploringRT} introduziram PRM e RRT com os primeiros argumentos de convergência. Para o EST, Hsu et al.~\cite{hsu1997path} propuseram o algoritmo e~\cite{hsu1999path} apresentaram a prova formal: em espaços expansivos, a probabilidade de falha decai exponencialmente. A hipótese de expansividade é mais restritiva do que a simples existência de caminho com folga, exigida pelo RRT. A formalização rigorosa da completude do RRT geométrico viria mais tarde, com Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric}.
 
-Entretanto, completude probabilística não implica convergência ao ótimo. Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF} demonstraram que o RRT converge quase certamente para uma solução subótima, propondo o RRT* como alternativa assintoticamente ótima. O mesmo vale para o EST padrão: por não incorporar critérios de custo em sua estratégia de expansão, ele também não é assintoticamente ótimo~\cite{Karaman2011SamplingbasedAF}. A partir desse marco teórico, surgiram variantes como o \textit{Informed} RRT*~\cite{6942976}, que restringe a amostragem a um hiperelipsoide admissível, e o RRT*-SMART~\cite{nasir2013rrtsmart}, que acelera a convergência por meio de pontos auxiliares (\textit{beacons}).
+Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF} mostraram que o RRT converge quase certamente para uma solução subótima, propondo o RRT* como alternativa assintoticamente ótima. O mesmo vale para o EST padrão. A partir daí, surgiram o \textit{Informed} RRT*~\cite{6942976}, que restringe a amostragem a um hiperelipsoide admissível, e o RRT*-SMART~\cite{nasir2013rrtsmart}, que usa pontos auxiliares para acelerar a convergência.
 
-Duas contribuições posteriores são diretamente relevantes para a linha do EST. Hauser e Zhou~\cite{hauser2016asymptotically} propuseram o meta-algoritmo \textbf{AO-x}, que converte qualquer planejador cinodinâmico viável, incluindo o EST, em um planejador assintoticamente ótimo, sem recorrer a funções de direcionamento ou resolvedores de problemas de contorno de dois pontos. A ideia central é transformar o problema ótimo em uma sequência de problemas viáveis resolvidos em um espaço estado-custo aumentado. À medida que soluções de custo progressivamente menor são encontradas, o espaço de busca é progressivamente contraído em torno do ótimo. O trabalho demonstra o método usando EST e RRT como sub-rotinas e prova que a solução converge quase certamente para o ótimo.
+Duas contribuições são diretamente relevantes para a linha do EST. Hauser e Zhou~\cite{hauser2016asymptotically} propuseram o \textbf{AO-x}, um meta-algoritmo que converte qualquer planejador cinodinâmico viável, incluindo o EST, em assintoticamente ótimo, sem depender de funções de direcionamento. A ideia é transformar o problema ótimo em uma sequência de problemas viáveis resolvidos em um espaço estado-custo aumentado. Rickert, Sieverling e Brock~\cite{rickert2014balancing} propuseram o \textbf{EET}, variante do EST que incorpora informação do espaço de trabalho para ajustar dinamicamente o balanço entre exploração e explotação, com ganhos reportados de até três ordens de magnitude em manipulação robótica.
 
-Rickert, Sieverling e Brock~\cite{rickert2014balancing} propuseram o \textbf{EET} (\textit{Exploring/Exploiting Tree}), variante direta do EST que incorpora informação do espaço de trabalho para ajustar dinamicamente o balanço entre exploração e explotação. Enquanto o EST seleciona nós de expansão com base exclusivamente na densidade local no espaço de configuração, o EET pondera essa seleção com uma estimativa de distância ao objetivo no espaço de trabalho, direcionando a busca para regiões promissoras sem abandonar a exploração de regiões mal cobertas. Os autores reportam ganhos de até três ordens de magnitude sobre planejadores do estado da arte em cenários reais de manipulação robótica.
+Extensões adicionais cobrem planejamento cinodinâmico via RRT~\cite{LaValle1999RandomizedKP} e EST~\cite{hsu2002randomized}, ambientes dinâmicos~\cite{guvenkaya2024local}, mapeamento orientado a risco~\cite{laconte2021lambda} e campos potenciais~\cite{khatib1986real}.
 
-Por fim, diversas extensões abordam cenários mais realistas, incluindo planejamento cinodinâmico via RRT~\cite{LaValle1999RandomizedKP} e via EST~\cite{hsu2002randomized}, ambientes dinâmicos~\cite{guvenkaya2024local}, mapeamento orientado a risco~\cite{laconte2021lambda} e métodos reativos como campos potenciais~\cite{khatib1986real}. Essas contribuições evidenciam a consolidação dos métodos baseados em amostragem como ferramenta central em robótica móvel e manipulação.
+O RRT é eficiente em macroambientes pelo viés de Voronoi, mas tende a saturar nas fronteiras dos obstáculos. O EST mapeia bem regiões de baixa densidade em espaços expansivos, mas sem uma força motriz global fica lento para cruzar grandes áreas abertas. Nenhum dos dois lida bem sozinho com cenários mistos, que combinam regiões abertas com passagens estreitas. Este trabalho aborda essa lacuna propondo uma variante híbrida que integra a expansão rápida do RRT ao controle de densidade do EST.
 
-Apesar do sucesso do RRT em explorar macroambientes via viés de Voronoi~\cite{LaValle1998RapidlyexploringRT} e da robustez do EST em mapear regiões de baixa densidade sob a hipótese de espaços expansivos~\cite{hsu1999path}, ambos os algoritmos enfrentam limitações computacionais severas quando aplicados isoladamente em cenários mistos, isto é, ambientes que combinam vastas áreas desobstruídas com gargalos geométricos estreitos, conhecidos como \textit{narrow passages}. O RRT puro tende a sofrer com excesso de colisões e saturação de nós nas fronteiras dos obstáculos, ao passo que o EST isolado carece de uma força motriz de expansão rápida para cruzar grandes espaços abertos com eficiência. O presente trabalho aborda essa lacuna ao propor uma variante híbrida RRT-EST. A abordagem proposta integra a eficiência de expansão global do RRT ao controle fino de densidade local do EST, buscando equilibrar exploração espacial global e infiltração em passagens restritas.
-
-A \autoref{tab:trabalhos_relacionados} sintetiza os principais trabalhos discutidos, destacando seus algoritmos, categorias e contribuições.
+A \autoref{tab:trabalhos_relacionados} sintetiza os principais trabalhos discutidos.
 
 \subsection{Síntese dos trabalhos relacionados}
 
@@ -623,19 +585,19 @@ A \autoref{tab:trabalhos_relacionados} sintetiza os principais trabalhos discuti
     Zhang et al.~\cite{Zhang_2025} & Revisão & Fundacional & Revisão contemporânea de métodos amostrados. \\
     Gammell~\cite{gammell2021asymptotically} & Revisão & Fundacional & Revisão de métodos assintoticamente ótimos. \\
     \midrule
-    LaValle~\cite{LaValle1998RapidlyexploringRT} & RRT & Completude & Introdução do RRT e do conceito de viés de Voronoi. \\
-    Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} & RRT & Completude & Prova formal de completude probabilística sob hipóteses fracas. \\
-    Hsu et al.~\cite{hsu1997path} & EST & Completude & Introdução do EST e definição de espaços expansivos. \\
-    Hsu et al.~\cite{hsu1999path} & EST & Completude & Prova de completude probabilística fundamentada na expansividade. \\
+    LaValle~\cite{LaValle1998RapidlyexploringRT} & RRT & Completude & Introdução do RRT e do viés de Voronoi. \\
+    Kleinbort et al.~\cite{kleinbort2022probabilisticcompletenessrrtgeometric} & RRT & Completude & Prova formal de completude probabilística. \\
+    Hsu et al.~\cite{hsu1997path} & EST & Completude & Introdução do EST e dos espaços expansivos. \\
+    Hsu et al.~\cite{hsu1999path} & EST & Completude & Prova de completude pela expansividade. \\
     \midrule
-    Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF} & RRT* & Otimalidade & Demonstração da não-otimalidade do RRT/EST; proposição do RRT*. \\
-    Gammell et al.~\cite{6942976} & Informed RRT* & Otimalidade & Amostragem informada delimitada por hiperelipsoide admissível. \\
-    Nasir et al.~\cite{nasir2013rrtsmart} & RRT*-SMART & Otimalidade & Aceleração da convergência através de pontos auxiliares (\textit{beacons}). \\
-    Hauser e Zhou~\cite{hauser2016asymptotically} & AO-x (EST/RRT) & Otimalidade & Meta-algoritmo para planejamento cinodinâmico assintoticamente ótimo. \\
-    Rickert et al.~\cite{rickert2014balancing} & EET & Eficiência & Variante do EST com balanço dinâmico via espaço de trabalho. \\
+    Karaman e Frazzoli~\cite{Karaman2011SamplingbasedAF} & RRT* & Otimalidade & Não-otimalidade do RRT/EST; proposição do RRT*. \\
+    Gammell et al.~\cite{6942976} & Informed RRT* & Otimalidade & Amostragem por hiperelipsoide admissível. \\
+    Nasir et al.~\cite{nasir2013rrtsmart} & RRT*-SMART & Otimalidade & Convergência acelerada por pontos auxiliares. \\
+    Hauser e Zhou~\cite{hauser2016asymptotically} & AO-x (EST/RRT) & Otimalidade & Meta-algoritmo cinodinâmico assintoticamente ótimo. \\
+    Rickert et al.~\cite{rickert2014balancing} & EET & Eficiência & Variante do EST com balanço dinâmico pelo espaço de trabalho. \\
     \midrule
-    LaValle e Kuffner~\cite{LaValle1999RandomizedKP} & RRT cinodinâmico & Aplicado & Extensão cinodinâmica aplicada ao algoritmo RRT. \\
-    Hsu et al.~\cite{hsu2002randomized} & EST cinodinâmico & Aplicado & Extensão cinodinâmica do EST mitigando obstáculos móveis. \\
+    LaValle e Kuffner~\cite{LaValle1999RandomizedKP} & RRT cinodinâmico & Aplicado & Extensão cinodinâmica do RRT. \\
+    Hsu et al.~\cite{hsu2002randomized} & EST cinodinâmico & Aplicado & Extensão cinodinâmica do EST com obstáculos móveis. \\
 
 \end{longtable}
 \end{center}

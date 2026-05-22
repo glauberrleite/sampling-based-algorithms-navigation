@@ -1,21 +1,73 @@
 \chapter*{Lista de Abreviações}
+\addcontentsline{toc}{chapter}{Lista de Abreviações}
 
 \begin{description}
-    \item[\textbf{IoT}] \quad \textit{Internet of Things (Internet das Coisas)}
-    \item[\textbf{MQTT}] \quad \textit{Message Queuing Telemetry Transport}
-    \item[\textbf{Wi-Fi}] \quad \textit{Wireless Fidelity}
-    \item[\textbf{Zigbee}] \quad \textit{Protocolo de Comunicação sem Fio de Baixo Consumo}
-    \item[\textbf{WPA2}] \quad \textit{Wi-Fi Protected Access II}
-    \item[\textbf{WPA3}] \quad \textit{Wi-Fi Protected Access III}
-    \item[\textbf{OSI}] \quad \textit{Open Systems Interconnection}
-    \item[\textbf{CSA}] \quad \textit{Connectivity Standards Alliance}
-    \item[\textbf{API}] \quad \textit{Application Programming Interface}
-    \item[\textbf{LAN}] \quad \textit{Local Area Network}
-    \item[\textbf{WAN}] \quad \textit{Wide Area Network}
-    \item[\textbf{IP}] \quad \textit{Internet Protocol}
-    \item[\textbf{HTTP}] \quad \textit{Hypertext Transfer Protocol}
-    \item[\textbf{UDP}] \quad \textit{User Datagram Protocol}
-    \item[\textbf{TCP}] \quad \textit{Transmission Control Protocol}
-    \item[\textbf{JSON}] \quad \textit{JavaScript Object Notation}
-    \item[\textbf{AES}] \quad \textit{Advanced Encryption Standard}
+    \item[\textbf{2D}] \quad \textit{Bidimensional}
+    
+    \item[\textbf{DOF}] \quad \textit{Degrees of Freedom 
+    (Graus de Liberdade)}
+    
+    \item[\textbf{EST}] \quad \textit{Expansive Space Tree}
+    
+    \item[\textbf{HybridEST}] \quad Variante híbrida proposta neste trabalho, 
+    baseada na combinação de características do RRT e do EST
+    
+    \item[\textbf{OMPL}] \quad \textit{Open Motion Planning Library}
+    
+    \item[\textbf{P3DX}] \quad \textit{Pioneer 3-DX}
+    
+    \item[\textbf{PRM}] \quad \textit{Probabilistic Roadmap}
+    
+    \item[\textbf{ROS}] \quad \textit{Robot Operating System}
+    
+    \item[\textbf{RRT}] \quad \textit{Rapidly-exploring Random Tree}
+    
+    \item[\textbf{RRT*}] \quad \textit{Rapidly-exploring Random Tree Star}
+    
+    \item[\textbf{ZMQ}] \quad \textit{ZeroMQ}
+
+      \item[\textbf{API}] \quad \textit{Application Programming Interface 
+    (Interface de Programação de Aplicações)}
+    
+    \item[\textbf{CSV}] \quad \textit{Comma-Separated Values 
+    (Valores Separados por Vírgula)}
+\end{description}
+
+\chapter*{Lista de Símbolos}
+\addcontentsline{toc}{chapter}{Lista de Símbolos}
+
+\begin{description}
+    \item[\(\mathbf{Q}\)] \quad Espaço de configuração do robô.
+    
+    \item[\(\mathbf{Q_{free}}\)] \quad Espaço de configuração livre de colisões.
+    
+    \item[\(\mathbf{Q_{obs}}\)] \quad Região do espaço de configuração ocupada por obstáculos.
+    
+    \item[\(\mathbf{q_{start}}\)] \quad Configuração inicial do robô.
+    
+    \item[\(\mathbf{q_{goal}}\)] \quad Configuração objetivo.
+    
+    \item[\(\mathbf{q_{rand}}\)] \quad Configuração amostrada aleatoriamente.
+    
+    \item[\(\mathbf{q_{near}}\)] \quad Nó mais próximo ou nó selecionado para expansão.
+    
+    \item[\(\mathbf{q_{new}}\)] \quad Nova configuração gerada pelo algoritmo.
+    
+    \item[\(\mathbf{T}\)] \quad Árvore de planejamento construída pelo algoritmo.
+    
+    \item[\(\boldsymbol{\alpha}\)] \quad Probabilidade de seleção da componente global do HybridEST.
+    
+    \item[\(\boldsymbol{\rho(q_i)}\)] \quad Estimativa de densidade local ao redor do nó \(q_i\).
+    
+    \item[\(\mathbf{r_d}\)] \quad Raio utilizado para estimar a densidade local.
+    
+    \item[\(\mathbf{J(c)}\)] \quad Função de custo associada a um caminho \(c\).
+    
+    \item[\(\mathbf{t_{plan}}\)] \quad Tempo de planejamento.
+    
+    \item[\(\mathbf{t_{exec}}\)] \quad Tempo de execução do caminho pelo robô.
+    
+    \item[\(\mathbf{e_{final}}\)] \quad Erro final entre a posição do robô e o objetivo.
+    
+    \item[\(\mathbf{c_{min}}\)] \quad Clearance mínima do caminho em relação aos obstáculos.
 \end{description}
